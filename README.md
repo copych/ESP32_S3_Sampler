@@ -1,2 +1,3 @@
-# ESP32_Sampler
-ESP32 Sampler
+# ESP32_SD_Sampler
+ESP32 SD Sampler is a music synthesizer, which can play PCM WAV samples directly from an SD (microSD) card connected to a ESP32(S3).
+The main difference compared to the projects available on the net is that this sampler won't try to preload all the stuff into the RAM/PSRAM to then play it fast on demand. So it's not limited by the size of PSRAM and can take really huge (1GB and more) sample sets. It only requires that the card is freshly formatted FAT32 and has no or little bad blocks (actually it requires that the WAV files is written with little or no fragmentation at all). On start it analyzes existing file allocation table (FAT) and forms it's own sample lookup table to be able to access data immediately.
