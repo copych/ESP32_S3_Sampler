@@ -26,3 +26,25 @@ What's not working:
 * SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets.
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * On polyphony overrun there are some audible clicks. Need to retrig voices in a more delicate way.
+
+# SAMPLER.INI example
+here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
+```
+melodic=<NAME><OCTAVE>v<VELO:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>
+normalized=false
+enveloped=true
+# For example, with this template 
+# the file named F#4v7.wav will be treated as F# of the 4th octave played with 7th velocity of 1 through 16 possible.
+# 
+# Everything is case insensitive. Spaces are processed as valid chars.
+# Only WAV files are processed.
+# Only the first line of this file is processed, following lines are ignored.
+# 
+# Sample file name template to parse:
+# Parsed fields:
+# <NAME> - note name in sharp (#) or flat(b) notation: both Eb and D# are valid
+# <OCTAVE> - octave number
+# <VELO:a,b,c...z> - velocity layers from lowest to highest, comma separated
+# <NUMBER> - parsed, but not used - some digits
+```
+One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
