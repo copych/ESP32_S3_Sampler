@@ -26,6 +26,7 @@ What's not working:
 * SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets.
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * On polyphony overrun there are some audible clicks. Need to retrig voices in a more delicate way.
+* It lacks schematics, but, please, check the .h files for the connection info.
 
 # SAMPLER.INI example
 here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
