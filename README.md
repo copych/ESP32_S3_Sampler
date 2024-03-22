@@ -26,6 +26,7 @@ What's not working:
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * On polyphony overrun there are some audible clicks. We need to retrig voices in a more delicate way.
 * It lacks schematics, but, please, check the .h files for the connectivity info.
+* Demo video shall be done
 
 # SAMPLER.INI example
 here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
