@@ -44,7 +44,8 @@ enveloped=true
 # Parsed fields:
 # <NAME> - note name in sharp (#) or flat(b) notation: both Eb and D# are valid
 # <OCTAVE> - octave number
-# <VELO:a,b,c...z> - velocity layers from lowest to highest, comma separated
+# <VELO:a,b,c...z> - velocity layers from lowest to highest, comma separated,
+# numbers or short strings supported, no quotes needed i.e. <VELO:lo,m,hi> should be valid
 # <NUMBER> - parsed, but not used - some digits
 ```
 One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
