@@ -35,11 +35,11 @@ melodic=<NAME><OCTAVE>v<VELO:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>
 normalized=false
 enveloped=true
 # For example, with this template 
-# the file named F#4v7.wav will be treated as F# of the 4th octave played with 7th velocity of 1 through 16 possible.
+# the file named F#4v7.wav will be treated as F# of the 4th octave
+# played with 7th velocity of 1 through 16 possible.
 # 
 # Everything is case insensitive. Spaces are processed as valid chars.
 # Only WAV files are processed.
-# Only the first line of this file is processed, following lines are ignored.
 # 
 # Sample file name template to parse:
 # Parsed fields:
