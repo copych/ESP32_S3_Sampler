@@ -11,11 +11,10 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
   initKeyboard();
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     DEBF("Voice %d: ", i);
-    Voices[i].init(Card) ;    
+    Voices[i].init(Card, &_sustain) ;    
   }
   if (num_sets > 0) {
-    setSampleRate(SAMPLE_RATE);    
-    setCurrentFolder(1);
+    setSampleRate(SAMPLE_RATE);
     DEBUG("+++");
   } else {
     while(true) {
@@ -45,38 +44,53 @@ int SamplerEngine::scanRootFolder() {
 }
 
 inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
-  uint32_t maxpos=0;
+  float maxAge = 0.0;
+  float maxAmp = 0.0;
   int id = 0;
+  /*
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    if (Voices[i].getMidiNote() == midi_note){
+      Voices[i].end(false);
+      DEBUG("SAMPLER: Retrig same note");
+      return (int)i;
+    }
+  }
+  */
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     if (!Voices[i].isActive()){
+   //   DEBUG("SAMPLER: Clean start");
       return (int)i;
     }
-  }
-  
+  }  
+  /*
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-    if (Voices[i].getMidiNote()==midi_note){
-      Voices[i].end(false);
-      return (int)i;
-    }
-  }
-
-  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-    if (Voices[i].getBufPlayed()>maxpos){
-      maxpos = Voices[i].getBufPlayed();
+    if (Voices[i].getAmplitude() > maxAmp){
+      maxAmp = Voices[i].getAmplitude();
       id = i;
      // Voices[i].end(false);
     }
   }
+  DEBUG("Retrig most quiet");
+  return id;
+  */
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    if (Voices[i].getAge() > maxAge){
+      maxAge = Voices[i].getAge();
+      id = i;
+     // Voices[i].end(false);
+    }
+  }
+  DEBUG("SAMPLER: Retrig oldest");
   return id;
 }
 
 inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
-  int id = assignVoice(midiNote, velo);
+  int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
-  if (smp.channels>0) {
-    Voices[id].prepare(_sampleMap[midiNote][mapVelo(velo)]);
-    Voices[id].start(midiNote, velo);
-    // DEBF("Starting voice %d note %d velo %d\r\n", id, midiNote, velo);
+  if (smp.channels > 0) {
+    Voices[i].prepare(_sampleMap[midiNote][mapVelo(velo)]);
+    Voices[i].start(midiNote, velo);
+    // DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
   } else {
     return;
   }
@@ -84,11 +98,22 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
 
 inline void SamplerEngine::noteOff(uint8_t midiNote, bool hard ){
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-    if (!Voices[i].getMidiNote()==midiNote) {
-      
-      DEBF("Stopping voice %d note %d \r\n", i, midiNote);
-      Voices[i].end(false);
-      return;
+    if (Voices[i].getMidiNote() == midiNote) {      
+      // DEBF("SAMPLER: NOTE OFF Voice %d note %d \r\n", i, midiNote);
+      Voices[i].setPressed(false);
+      Voices[i].end(hard);
+      // return;
+    }
+  }
+}
+
+
+inline void SamplerEngine::setSustain(bool onoff) {
+  _sustain = onoff; 
+  DEBF("SAMPLER: sustain: %d\r\n", onoff);
+  if (!onoff) {
+    for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+      Voices[i].end(false);   
     }
   }
 }
@@ -147,6 +172,7 @@ inline void SamplerEngine::setCurrentFolder(int folder_id) {
       parsed_t rcv = processMeloParser(fname);
       if (rcv.midi_note >= 0  &&  rcv.velo_layer >= 0) {
         sample_t smp;
+        smp.orig_velo_layer = rcv.velo_layer;
         smp.sectors = entry->sectors;
         smp.size = entry->size;
         parseWavHeader(entry, smp);
@@ -202,7 +228,17 @@ void SamplerEngine::parseIni() {
     if (s==0) continue;
     str_t val = iniStr.substring(s+1);
     if (iniStr.substring(0, s) == "MELODIC") parseMelodicTemplate(val) ;
+    if (iniStr.substring(0, s) == "NORMALIZED") parseBoolValue(_normalized, val) ;
+    if (iniStr.substring(0, s) == "ENVELOPED") parseBoolValue(_enveloped, val) ;
   }
+}
+
+void SamplerEngine::parseBoolValue(bool& var, str_t& val) {
+  val.trim();
+  val.toUpperCase();
+  var = false;
+  if (val=="TRUE" || val=="1") var = true;
+  if (val=="FALSE" || val=="0") var = false;
 }
 
 bool SamplerEngine::parseMelodicTemplate(str_t& line) {
@@ -332,7 +368,7 @@ parsed_t SamplerEngine::processMeloParser(fname_t& fname) {
           pos += match_weight;
         }
         else {
-          DEBF("Failed to determine note name\r\n");
+          DEBF("Failed to determine note name in <%s>\r\n", fname.c_str());
         }
 //        DEBF("Note: %s\r\n", notes[0][note_num].c_str());
         break;
@@ -432,7 +468,7 @@ void SamplerEngine::finalizeMapping() {
   for (int i = 0; i < _veloLayers; i++) {
     // going up
     for (int j = 0; j < 128; j++) {
-      if (_sampleMap[j][i].speed != 1.0) {
+      if (_sampleMap[j][i].speed == 0.0) {
         // search in _sampleMap by spiral
         s = -1;
         x = j;
@@ -445,9 +481,9 @@ void SamplerEngine::finalizeMapping() {
             y += dy;
             xc = constrain(x, 0, 127);
             yc = mapVelo(constrain(y, 0, 127));
-            if (_sampleMap[xc][yc].speed == 1.0) {
+            if (_sampleMap[xc][yc].speed > 0.0 ) {
               _sampleMap[j][i] = _sampleMap[xc][yc];
-              _sampleMap[j][i].speed = _keyboard[j].freq / _keyboard[x].freq;
+              _sampleMap[j][i].speed = _sampleMap[xc][yc].speed * _keyboard[j].freq / _keyboard[x].freq;
               break;  
             }
           }        
@@ -469,6 +505,7 @@ void SamplerEngine::finalizeMapping() {
       }
     }
   }
+  // VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER
 }
 
 void SamplerEngine::resetSamples() {
@@ -480,15 +517,23 @@ void SamplerEngine::resetSamples() {
       _sampleMap[j][i].sample_rate   = 44100;
       _sampleMap[j][i].channels   = 0;
       _sampleMap[j][i].orig_freq = _keyboard[j].freq;
-      _sampleMap[j][i].orig_velo_layer = 1;
+      _sampleMap[j][i].orig_velo_layer = 0;
       _sampleMap[j][i].amp = 1.0;
       _sampleMap[j][i].speed = 0.0;
-      _sampleMap[j][i].bit_depth = -1;
+      _sampleMap[j][i].bit_depth = 0;
       _sampleMap[j][i].attack_time   = 0.01f;
       _sampleMap[j][i].decay_time    = 0.1f;
-      _sampleMap[j][i].release_time  = 5.0f;
+      _sampleMap[j][i].release_time  = 2.0f;
     }
   }
+}
+
+int SamplerEngine::getActiveVoices() {
+  int n=0;
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    if (Voices[i].isActive()) n++;    
+  }
+  return n;
 }
 
 void SamplerEngine::getSample(float& sampleL, float& sampleR){

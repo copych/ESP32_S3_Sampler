@@ -6,7 +6,69 @@
  * a collection of linear sector chains boundaries. Ideally, when no fragmentation appears,
  * only a single pair of sectors (beginning/end) per file needed.
  */
+/*
+Just for your information
+Of what I have tested with some random 16GB card:
 
+sectors per read  |  reading speed, MB/s
+------------------+---------------------
+        1         |        0.90
+        2         |        1.57
+        4         |        2.82
+        8         |        5.00
+       16         |        7.79
+       32         |       11.12
+       64         |       13.85
+      128         |       15.75
+
+ * SPI access is SIGNIFICANTLY SLOWER than SD_MMC (like 1/3 of SD_MMC speed), 
+ * so 4-bit MMC is the only possible variant for playing back samples from SD_MMC.
+ * Arduino ESP32 core libs are able of using 4-bit bus, and it's a good thing.
+ * Thus D1 and D2 are mandatory to have a good speed
+ * Be aware that the vast majority of micro-SD breakout boards are produced
+ * with D1 and D2 NOT CONNECTED
+ *
+ * pin 1 - D2                |  Micro SD card     |
+ * pin 2 - D3                |                   /
+ * pin 3 - CMD               |                  |__
+ * pin 4 - VDD (3.3V)        |                    |
+ * pin 5 - CLK               | 8 7 6 5 4 3 2 1   /
+ * pin 6 - VSS (GND)         | - - - - - - - -  /
+ * pin 7 - D0                | - - - - - - - - |
+ * pin 8 - D1                |_________________|
+ *                             ¦ ¦ ¦ ¦ ¦ ¦ ¦ ¦
+ *                     г=======- ¦ ¦ ¦ ¦ ¦ ¦ L=========¬
+ *                     ¦         ¦ ¦ ¦ ¦ ¦ L======¬    ¦
+ *                     ¦   г=====- ¦ ¦ ¦ L=====¬  ¦    ¦
+ * Connections for     ¦   ¦   г===¦=¦=¦===¬   ¦  ¦    ¦
+ * full-sized          ¦   ¦   ¦   г=- ¦   ¦   ¦  ¦    ¦
+ * SD card             ¦   ¦   ¦   ¦   ¦   ¦   ¦  ¦    ¦
+ * ESP32-S3 DevKit  | 21  47  GND  39 3V3 GND  40 41  42  |
+ * ESP32-S3-USB-OTG | 38  37  GND  36 3V3 GND  35 34  33  |
+ * ESP32            |  4   2  GND  14 3V3 GND  15 13  12  |
+ * Pin name         | D1  D0  VSS CLK VDD VSS CMD D3  D2  |
+ * SD pin number    |  8   7   6   5   4   3   2   1   9 /
+ *                  |                                  =/
+ *                  |__=___=___=___=___=___=___=___=___/
+ * WARNING: ALL data pins must be pulled up to 3.3V with an external 10k Ohm resistor!
+ * Note to ESP32 pin 2 (D0): Add a 1K Ohm pull-up resistor to 3.3V after flashing
+ *
+ * SD Card | ESP32
+ *    D2       12
+ *    D3       13
+ *    CMD      15
+ *    VSS      GND
+ *    VDD      3.3V
+ *    CLK      14
+ *    VSS      GND
+ *    D0       2  (add 1K pull up after flashing)
+ *    D1       4
+ *
+ *    For more info see file README.md in this library or on URL:
+ *    https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC
+ *    
+ *  
+ */
 #include "sdmmc_types.h"
 //#define USE_MUTEX
 
@@ -164,7 +226,6 @@ class SDMMC_FAT32 {
     int dirent_is_deleted_lfn(sfn_dir_t *d);
     int fat_entry_type(uint32_t x);
     const char * fat_entry_type_str(uint32_t x);
-    
     
     const char* to_8dot3(const char*);
     const char* add_nul(const char*);

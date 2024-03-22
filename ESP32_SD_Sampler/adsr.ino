@@ -14,9 +14,9 @@ void Adsr::Init(float sample_rate, int blockSize)
     gate_         = false;
     mode_         = ADSR_SEG_IDLE;
 
-    SetTime(ADSR_SEG_ATTACK, 0.1f);
+    SetTime(ADSR_SEG_ATTACK, 0.001f);
     SetTime(ADSR_SEG_DECAY, 0.1f);
-    SetTime(ADSR_SEG_RELEASE, 0.1f);
+    SetTime(ADSR_SEG_RELEASE, 0.05f);
 }
 
 void Adsr::Retrigger(bool hard)
@@ -127,7 +127,7 @@ float Adsr::Process()
 			out = 0.0f; 
 			break;
         case ADSR_SEG_ATTACK:
-            x_ += D0_ * (attackTarget_ - x_);
+            x_ += (float)D0_ * ((float)attackTarget_ - (float)x_);
             out = x_;
             if(out > 1.f)
             {
@@ -139,7 +139,7 @@ float Adsr::Process()
             break;
         case ADSR_SEG_DECAY:
         case ADSR_SEG_RELEASE:
-            x_ += D0_ * (target_ - x_);
+            x_ += (float)D0_ * ((float)target_ - (float)x_);
             out = x_;
             if(out < 0.0f)
             {

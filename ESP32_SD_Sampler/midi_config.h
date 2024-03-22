@@ -1,5 +1,7 @@
 #pragma once
 
+
+#define CC_SUSTAIN          64
 // Global 
 #define CC_ANY_COMPRESSOR   93
 #define CC_ANY_DELAY_TIME   84

@@ -1,15 +1,8 @@
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-#define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
-#define I2S_DOUT_PIN    6       // to I2S DATA IN pin (DIN D DAT) 
-#define I2S_WCLK_PIN    7       // I2S WORD CLOCK pin (WCK WCL LCK)
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-#define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
-#define I2S_DOUT_PIN    18      // to I2S DATA IN pin (DIN D DAT) 
-#define I2S_WCLK_PIN    19      // I2S WORD CLOCK pin (WCK WCL LCK)
-#endif
+#include "driver/i2s.h"
+
 //#define DEBUG_MASTER_OUT
 
-#include "driver/i2s.h"
+
 const i2s_port_t i2s_num = I2S_NUM_0; // i2s port number
 
 #ifdef USE_INTERNAL_DAC
@@ -79,16 +72,17 @@ static inline void IRAM_ATTR i2s_output () {
 size_t bytes_written;
 #ifdef USE_INTERNAL_DAC
   for (int i=0; i < DMA_BUF_LEN; i++) {
-    out_buf[out_buf_id]._unsigned[i*2] = (uint16_t)(127.0f * ( fast_shape( mix_buf_l[out_buf_id][i]) + 1.0f)) << 8U; // 256 output levels is way to little
-    out_buf[out_buf_id]._unsigned[i*2+1] = (uint16_t)(127.0f * ( fast_shape( mix_buf_r[out_buf_id][i]) + 1.0f)) << 8U; // maybe you'll be lucky to fully use this range
+    out_buf[out_buf_id][i*2] = (uint16_t)(127.0f * ( fast_shape( mix_buf_l[out_buf_id][i]) + 1.0f)) << 8U; // 256 output levels is way to little
+    out_buf[out_buf_id][i*2+1] = (uint16_t)(127.0f * ( fast_shape( mix_buf_r[out_buf_id][i]) + 1.0f)) << 8U; // maybe you'll be lucky to fully use this range
   }
-  i2s_write(i2s_num, out_buf[out_buf_id]._unsigned, sizeof(out_buf[out_buf_id]._unsigned), &bytes_written, portMAX_DELAY);
+  i2s_write(i2s_num, out_buf[out_buf_id], sizeof(out_buf[out_buf_id]), &bytes_written, portMAX_DELAY);
 #else
   for (int i=0; i < DMA_BUF_LEN; i++) {
-    out_buf[out_buf_id]._signed[i*2] = 0x7fff * mix_buf_l[out_buf_id][i]; 
-    out_buf[out_buf_id]._signed[i*2+1] = 0x7fff * mix_buf_r[out_buf_id][i];
+    out_buf[out_buf_id][i*2] = (float)0x7fff * mix_buf_l[out_buf_id][i]; 
+    out_buf[out_buf_id][i*2+1] = (float)0x7fff * mix_buf_r[out_buf_id][i];
+   // if (i%4==0) DEBUG(out_buf[out_buf_id][i*2]);
   }
-  i2s_write(i2s_num, out_buf[out_buf_id]._signed, sizeof(out_buf[out_buf_id]._signed), &bytes_written, portMAX_DELAY);
+  i2s_write(i2s_num, out_buf[out_buf_id], sizeof(out_buf[out_buf_id]), &bytes_written, portMAX_DELAY);
 #endif
 }
 
@@ -98,15 +92,17 @@ static inline void IRAM_ATTR mixer() { // sum buffers
 #ifdef DEBUG_MASTER_OUT
   static float meter = 0.0f;
 #endif
+  static const float attenuator = 0.5f;
   static float sampler_out_l, sampler_out_r;
   static float mono_mix;
 
     for (int i=0; i < DMA_BUF_LEN; i++) {
       
-      sampler_out_l = sampler_l[out_buf_id][i];
-      sampler_out_r = sampler_r[out_buf_id][i];
+      sampler_out_l = sampler_l[out_buf_id][i] * attenuator;
+      sampler_out_r = sampler_r[out_buf_id][i] * attenuator;
 
 // TODO: add fx 
+      Reverb.Process(&sampler_out_l, &sampler_out_r);
 
       mix_buf_l[out_buf_id][i] = (sampler_out_l);
       mix_buf_r[out_buf_id][i] = (sampler_out_r);
