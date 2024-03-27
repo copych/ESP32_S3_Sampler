@@ -8,7 +8,7 @@ For the time being the sampler only supports S3 variant.
 It's possible to rearrange classes in order to allocate members dynamically, and run it on an ESP32, but ESP32 has a strong limitation: memory segmentation (SRAM0, SRAM1, SRAM2 and segments within these parts like BSS, IRAM, DRAM etc) is hardware defined and has different performance. So it's quite a challenge to fit all the objects and buffers in appropriate memory regions. I have tried and managed to compile, but the performance was much worse so I rolled back. If someone would like to, please fork the repository and try.
 
 # Polyphony
-Current setting is 19 voices. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need.
+Current setting is 19 stereo voices. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need.
 
 # Velocity layers
 There are currently 16 velocity layers (i.e. dynamic variants of each sampled note) which corresponds to the maximum count that I have found (https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html).
@@ -19,12 +19,12 @@ Reverb is implemented as a POC (Proof of Concept). Probably there are some idle 
 # TODO
 The state of the project has not gone far from POC, so don't you expect a ready-made perfect sampler.
 What's not working:
-* Hairless MIDI doesn't work, at least for my h/w setup (LOLIN S3 Pro)
-* Velocity routines mostly not implemented.
+* On polyphony overrun there are some audible clicks. We need to retrig voices in a more delicate way.
+* Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
+* Velocity routines are mostly NOT implemented.
 * Envelope params are hard-coded
 * SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets.
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
-* On polyphony overrun there are some audible clicks. We need to retrig voices in a more delicate way.
 * It lacks schematics, but, please, check the .h files for the connectivity info.
 * Demo video shall be done
 
