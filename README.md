@@ -8,7 +8,7 @@ For the time being the sampler only supports S3 variant.
 It's possible to rearrange classes in order to allocate members dynamically, and run it on an ESP32, but ESP32 has a strong limitation: memory segmentation (SRAM0, SRAM1, SRAM2 and segments within these parts like BSS, IRAM, DRAM etc) is hardware defined and has different performance. So it's quite a challenge to fit all the objects and buffers in appropriate memory regions. I have tried and managed to compile, but the performance was much worse so I rolled back. If someone would like to, please fork the repository and try.
 
 # Polyphony
-Current setting is 19 stereo voices. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need.
+With the microSD cards that I have, the current setting is 19 stereo voices. I now set 8 sectors per read, which gives approx. 5 MB/s reading speed. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need. In theory, 5 MB/s at 44100 Hz 16 bit stereo should give 29 voices polyphony, so there should be a room to improve to get more simultaneous voices. But the limitation can also be caused by the computing power and by the internal SRAM<->FLASH cache performance.
 
 # Velocity layers
 There are currently 16 velocity layers (i.e. dynamic variants of each sampled note) which corresponds to the maximum count that I have found (https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html).
@@ -19,7 +19,7 @@ Reverb is implemented as a POC (Proof of Concept). Probably there are some idle 
 # TODO
 The state of the project has not gone far from POC, so don't you expect a ready-made perfect sampler.
 What's not working:
-* On polyphony overrun there are some audible clicks. We need to retrig voices in a more delicate way.
+* On polyphony overrun there are some audible clicks, it should retrig voices in a more delicate way.
 * Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
 * Velocity routines are mostly NOT implemented.
 * Envelope params are hard-coded
