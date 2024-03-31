@@ -2,22 +2,22 @@
 #include "midi_config.h"
 
 inline void MidiInit() {
-
-  #ifdef MIDI_VIA_SERIAL
-    Serial0.begin(115200);
+  #ifdef MIDI_VIA_SERIAL 
+  
+    Serial.begin( 115200, SERIAL_8N1 ); // midi port
     MIDI.setHandleNoteOn(handleNoteOn);
     MIDI.setHandleNoteOff(handleNoteOff);
     MIDI.setHandleControlChange(handleCC);
     MIDI.setHandlePitchBend(handlePitchBend);
     MIDI.setHandleProgramChange(handleProgramChange);
     MIDI.begin(MIDI_CHANNEL_OMNI);
-    if(Serial0) {
-      #ifdef RGB_LED
-        leds[0].setHue(100);//red
-        FastLED.setBrightness(1);
-        FastLED.show();
-      #endif
-    }
+
+    #ifdef RGB_LED
+      leds[0].setHue(100);//red
+      FastLED.setBrightness(1);
+      FastLED.show();
+    #endif
+
   #endif
   #ifdef MIDI_VIA_SERIAL2
     pinMode( MIDIRX_PIN , INPUT_PULLDOWN);

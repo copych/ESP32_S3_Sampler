@@ -11,7 +11,8 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
   initKeyboard();
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     DEBF("Voice %d: ", i);
-    Voices[i].init(Card, &_sustain) ;    
+    // sustain is global and needed for every voice, so we just pass a pointer to it.
+    Voices[i].init(Card, &_sustain);
   }
   if (num_sets > 0) {
     setSampleRate(SAMPLE_RATE);
@@ -58,7 +59,7 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
   */
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     if (!Voices[i].isActive()){
-   //   DEBUG("SAMPLER: Clean start");
+   //   DEBUG("SAMPLER: First vacant voice");
       return (int)i;
     }
   }  
@@ -88,8 +89,7 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
   if (smp.channels > 0) {
-    Voices[i].prepare(_sampleMap[midiNote][mapVelo(velo)]);
-    Voices[i].start(midiNote, velo);
+    Voices[i].start(_sampleMap[midiNote][mapVelo(velo)], midiNote, velo);
     // DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
   } else {
     return;
@@ -138,12 +138,15 @@ uint8_t SamplerEngine::unMapVelo(uint8_t mappedVelo) {
   }
 }
 
-void SamplerEngine::fillBuffer() {
+void IRAM_ATTR SamplerEngine::fillBuffer() {
   // search and fill the most hungry buffer
-  uint32_t hungerMax = 0;
-  int iToFeed = 0;
+  static uint32_t hungerMax;
+  static uint32_t hunger;
+  static int iToFeed;
+  hunger = hungerMax = 0;
+  iToFeed = 0;
   for (int i=0; i<MAX_POLYPHONY; i++) {
-    uint32_t hunger = Voices[i].hunger();
+    hunger = Voices[i].hunger();
     if (hunger > hungerMax) {
       hungerMax = hunger;
       iToFeed = i;

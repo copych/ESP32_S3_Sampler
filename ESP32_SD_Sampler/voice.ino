@@ -1,53 +1,34 @@
 #include "voice.h"
 
-bool Voice::allocateBuffers(eMemType_t mem_type) {
-  // actually this RAM/PSRAM works no more, cause malloc() can now decide to allocate in PSRAM
-  mem_type = MEM_RAM ; // PSRAM is not fast enough ((((
-  if (mem_type == MEM_RAM ) {
-    // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
-      _buffer0 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
-      _buffer1 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
-      if( _buffer0 == NULL || _buffer1 == NULL){
-        DEBUG("No more RAM for sampler buffer!");
-        return false;
-      } else {
-        DEBF("%d Bytes RAM allocated for sampler buffer, &_buffer0=%#010x\r\n", BUF_NUMBER * BUF_SIZE_BYTES, _buffer0);
-      }
+bool Voice::allocateBuffers() {
+  // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+  _buffer0 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
+  _buffer1 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
+  if( _buffer0 == NULL || _buffer1 == NULL){
+    DEBUG("No more RAM for sampler buffer!");
+    return false;
   } else {
-      _buffer0 = (int16_t*)ps_malloc( BUF_SIZE_BYTES);
-      _buffer1 = (int16_t*)ps_malloc( BUF_SIZE_BYTES);
-      if( _buffer0 == NULL || _buffer1 == NULL){
-        DEBUG("No more PSRAM for sampler buffer!");
-        return false;
-      } else {
-        DEBF("%d Bytes PSRAM allocated for sampler buffer, &_buffer0=%#010x\r\n", BUF_NUMBER * BUF_SIZE_BYTES, _buffer0);
-      }
-  } 
+    DEBF("%d Bytes RAM allocated for sampler buffer, &_buffer0=%#010x\r\n", BUF_NUMBER * BUF_SIZE_BYTES, _buffer0);
+  }
   return true;
 }
 
 void Voice::init(SDMMC_FAT32* Card, bool* sustain){
   _Card = Card;
   _sustain = sustain;
-#ifdef BOARD_HAS_PSRAM
-  if (!allocateBuffers(MEM_PSRAM)) {
+  if (!allocateBuffers()) {
     DEBUG("NOT ENOUGH MEMORY");
     delay(100);
     while(1){;}
-    }
-#else
-  if (!allocateBuffers(MEM_RAM)) {
-    DEBUG("NOT ENOUGH MEMORY");
-    delay(100);
-    while(1){;}
-    }
-#endif
-  AmpEnv.Init(SAMPLE_RATE);
-  AmpEnv.End(true);
-  _active = false;
+  }
+  AmpEnv.init(SAMPLE_RATE);
+  AmpEnv.end(Adsr::END_NOW);
+  _active   = false;
+  _pressed  = false;
+  _eof      = true;
 }
 
-void Voice::prepare(const sample_t& smp) {
+void Voice::start(const sample_t smp, uint8_t midiNote, uint8_t midiVelo){
   _sampleFile             = smp;
   _amplitude              = 0.0f;
   _lackingL               = 0.0f;
@@ -73,6 +54,26 @@ void Voice::prepare(const sample_t& smp) {
   }
   _lastSectorRead         = smp.sectors[_curChain].first - 1;
   // DEBF("VOICE: prepare velo_layer %d ch %d bits %d\r\n",smp.orig_velo_layer, smp.channels, smp.bit_depth );
+
+  _midiNote = midiNote;
+  _midiVelo = midiVelo; 
+  _amp = (float)_midiVelo * 0.00003f * MIDI_NORM;
+  AmpEnv.retrigger(Adsr::END_NOW);
+  _active = true;
+  _pressed = true;
+  /*
+  if (midiVelo > 0) {
+    _divVelo = 1.0f / (float)midiVelo;
+  } else {
+    _divVelo = 256.0f;
+  }
+  */
+  _divVelo = 1.0f;
+  _ageCoef = (float)_smpSize * (float)_divFileSize * (float)_divVelo;
+  _hungerCoef = (float)_smpSize * (float)_speed;
+ // DEBF("VOICE: start note %d velo %d\r\n", midiNote, midiVelo);
+
+
 }
 
 inline void Voice::toggleBuf(){  
@@ -103,42 +104,33 @@ inline void Voice::toggleBuf(){
   _bufPlayed++;
 } 
 
-inline void Voice::start(uint8_t midiNote, uint8_t midiVelo){
-  _midiNote = midiNote;
-  _midiVelo = midiVelo; 
-  AmpEnv.Retrigger(true);
-  _active = true;
-  _pressed = true;
- // DEBF("VOICE: start note %d velo %d\r\n", midiNote, midiVelo);
-}
-
 void Voice::end(bool hard){
   if (hard) {
-    DEBF("VOICE: hard off note %d\r\n", _midiNote);
+  //  DEBF("VOICE: hard off note %d\r\n", _midiNote);
     _active = false;
-    _amplitude = 0.0;
-    AmpEnv.End(hard);
+  //  _amplitude = 0.0;
+    AmpEnv.end(Adsr::END_NOW);
   } else  if (!_pressed && !(*_sustain)) {
   //  DEBF("VOICE: soft off note %d\r\n", _midiNote);
 //    _active = false; // remove
-    AmpEnv.End(hard);
+    AmpEnv.end(Adsr::END_REGULAR);
   }
 }
 
 void Voice::getSample(float& sampleL, float& sampleR) {
+  static int pos;
+  static float env;
+  static uint32_t bytes_played;
+  float l1, l2, r1, r2;
   sampleL = 0.0f;
   sampleR = 0.0f;
   if (_bufEmpty[0] && _bufEmpty[1]) return;
-  int pos;
-  float env;
-  size_t bytes_played;
-  float l1, l2, r1, r2;
   if (_active) {
-    env =  (float)AmpEnv.Process() * 0.00003f;
+    env =  (float)AmpEnv.process() * _amp ;
    // env = 1.0;
-    if (!AmpEnv.IsRunning()) {
+    if (AmpEnv.isIdle()) {
       _active = false;
-      _amplitude = 0.0f;
+      //_amplitude = 0.0f;
     //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
     } else {
       switch (_sampleFile.channels) {
@@ -180,8 +172,12 @@ void Voice::getSample(float& sampleL, float& sampleR) {
           sampleL = 0.0f;
           sampleR = 0.0f;
       }
-      bytes_played = (_bufPlayed * _bufSizeSmp + _bufPosSmp[_idToPlay]) *_smpSize;
-  //    if ( bytes_played % 16 == 0) _amplitude = 0.98f * (float)_amplitude + (float)sampleL + (float)sampleR;
+      bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
+      /*
+      if ( bytes_played % 16 == 0 ) {
+        _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
+      } 
+      */
       if ( bytes_played >= _sampleFile.size ) {
         end(true);
        // DEBF("VOICE: bytes played >= size\r\n");
@@ -197,8 +193,8 @@ void Voice::getSample(float& sampleL, float& sampleR) {
 }
 
 void  Voice::feed() {
-  volatile size_t t1,t2;
-  t1 = micros();
+  //volatile size_t t1,t2;
+  //t1 = micros();
   if (_bufEmpty[_idToFill] && !_eof) {
     int sectorsToRead = READ_BUF_SECTORS;
     int sectorsAvailable ; 
@@ -239,13 +235,13 @@ void  Voice::feed() {
       _bufPosSmp[_idToFill]   = 0;
     }
   }
-  t2 = micros();
+  //t2 = micros();
   //DEBF("Fill time %d\r\n", t2-t1);
 }
 
 uint32_t Voice::hunger() {
-    if (!_active || _eof) return 0;
-    return (/*(float)_speedModifier * */(float)_speed * (float)(_bufPosSmp[0] + _bufPosSmp[1])) * (float)_smpSize ; // the bigger the value, the sooner we empty the buffer
+    if (!_active || _eof || !(_bufEmpty[0] || _bufEmpty[1])) return 0;
+    return (/*(float)_speedModifier * */(float)_hungerCoef * ((float)_bufPosSmp[0] + (float)_bufPosSmp[1]))   ; // the bigger the value, the sooner we empty the buffer
 }
 
 // linear interpolation of 2 neighbour values value by float index (mantissa only used)

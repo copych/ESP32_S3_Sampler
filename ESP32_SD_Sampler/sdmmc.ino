@@ -5,27 +5,42 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 // ESP32-S3 allows using SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3)
-/* 
+/*
 // default SDMMC GPIOs for S3:
+#define SDMMC_CMD 35
+#define SDMMC_CLK 36
 #define SDMMC_D0  37
 #define SDMMC_D1  38
 #define SDMMC_D2  33
 #define SDMMC_D3  34
-#define SDMMC_CLK 36
-#define SDMMC_CMD 35
-*/
 
+*/
+/*
+// TYPICAL dev board with two usb type-c connectors doesn't have GPIO 33 and 34
+#define SDMMC_CMD 3
+#define SDMMC_CLK 46 
+#define SDMMC_D0  9
+#define SDMMC_D1  10
+#define SDMMC_D2  11
+#define SDMMC_D3  12
+
+*/
 // LOLIN S3 PRO for example has a microSD socket, but D1 and D2 are not connected,
 // so if you dare you may solder these ones to GPIOs of your choice (please, refer 
 // to the docs choosing GPIOs, as they may have been used by some device already)
 // https://www.wemos.cc/en/latest/_static/files/sch_s3_pro_v1.0.0.pdf
 // LOLIN S3 PRO version (S3 allows configuring these ones):
+// 
+// DON'T YOU set LOLIN S3 PRO as a target board in Arduino IDE, because the board definition file 
+// seems to have some bugs, so you may have problems with MIDI. SET generic ESP32S3 Dev Module as your target!!!
+//
+
+#define SDMMC_CMD 11  // LOLIN PCB hardlink
+#define SDMMC_CLK 12  // PCB hardlink
 #define SDMMC_D0  13  // PCB hardlink
 #define SDMMC_D1  8   // my choice
 #define SDMMC_D2  10  // my choice
 #define SDMMC_D3  46  // PCB hardlink
-#define SDMMC_CLK 12  // PCB hardlink
-#define SDMMC_CMD 11  // PCB hardlink
 
 #elif defined(CONFIG_IDF_TARGET_ESP32)
 
@@ -144,12 +159,19 @@ void SDMMC_FAT32::begin(void)
   // host.max_freq_khz = SDMMC_FREQ_52M;
   host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
 #if defined SDMMC_D0
+
+  gpio_pulldown_dis((gpio_num_t)SDMMC_D0);
+  gpio_pulldown_dis((gpio_num_t)SDMMC_D1);
+  gpio_pulldown_dis((gpio_num_t)SDMMC_D3);
+  gpio_pulldown_dis((gpio_num_t)SDMMC_CLK);
+  gpio_pulldown_dis((gpio_num_t)SDMMC_CMD);
   gpio_pullup_en((gpio_num_t)SDMMC_D0);
   gpio_pullup_en((gpio_num_t)SDMMC_D1);
   gpio_pullup_en((gpio_num_t)SDMMC_D3);
   gpio_pullup_en((gpio_num_t)SDMMC_CLK);
   gpio_pullup_en((gpio_num_t)SDMMC_CMD);
  #if defined(CONFIG_IDF_TARGET_ESP32S3)
+  gpio_pulldown_dis((gpio_num_t)SDMMC_D2); 
   gpio_pullup_en((gpio_num_t)SDMMC_D2); // formally this is required, nevertheless GPIO12 of ESP32 set HIGH in some cases leads to a bootloop, so it's up to you if you want it for ESP32
   slot_config.clk = (gpio_num_t)SDMMC_CLK;
   slot_config.cmd = (gpio_num_t)SDMMC_CMD;

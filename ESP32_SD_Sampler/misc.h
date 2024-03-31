@@ -12,9 +12,10 @@
 #define SAMPLE_RATE 44100
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
+#define C_MAJOR_ON_START             // play C major chord on startup (testing)
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  #define RGB_LED 38              // blink as a vital sign
+  //#define RGB_LED 38              // blink as a vital sign
   #define MIDIRX_PIN      4      // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
   #define MIDITX_PIN      17      // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
   #define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)

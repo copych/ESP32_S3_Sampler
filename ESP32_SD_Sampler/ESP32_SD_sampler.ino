@@ -15,24 +15,15 @@ CRGB leds[1];
 //SET_LOOP_TASK_STACK_SIZE(80000);
 
 // =============================================================== MIDI interfaces ===============================================================
+
 #ifdef MIDI_VIA_SERIAL
-/*
-// default settings for Hairless midi is 115200 8-N-1
-struct CustomBaudRateSettings : public MIDI_NAMESPACE::DefaultSerialSettings {
-  static const long BaudRate = 115200;
-};
-struct SerialMIDISettings : public MIDI_NAMESPACE::DefaultSettings {
-  static const long BaudRate = 115200;
-  static const bool Use1ByteParsing = false;
-};
-MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>  serialMIDI(Serial);
-MIDI_NAMESPACE::MidiInterface<MIDI_NAMESPACE::SerialMIDI<HardwareSerial, SerialMIDISettings>> MIDI((MIDI_NAMESPACE::SerialMIDI<HardwareSerial, SerialMIDISettings>&)serialMIDI);
-*/
-  struct CustomBaudRate : public midi::DefaultSettings{
-      static const long BaudRate = 115200;
-      static const bool Use1ByteParsing = false;
+
+  struct CustomBaudRateSettings : public MIDI_NAMESPACE::DefaultSettings {
+    static const long BaudRate = 115200;
+    static const bool Use1ByteParsing = false;
   };
-  MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial0, MIDI, CustomBaudRate);
+  MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings> serialMIDI(Serial);
+  MIDI_NAMESPACE::MidiInterface<MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>> MIDI((MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>&)serialMIDI);
 
 #endif
 
@@ -126,59 +117,63 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
 static void  control_task(void *userData) { // core 1 task
   vTaskDelay(10);
   DEBUG ("core 1 control task run");
-  static int passby = 0;
-  while (true) {
-    Sampler.fillBuffer();
+  static uint32_t passby = 0;
+  while (true) { 
     /*
     if (timer2_fired) {
       timer2_fired = false;
       timeClick();
     }
+    */      
+    /*
+    if (passby >> 8 == 1) {
+    passby=0;
+    }
+    passby++;
     */
+    Sampler.fillBuffer();
+
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
-
     #endif
+
     #ifdef MIDI_VIA_SERIAL2
       MIDI2.read();
-      #ifdef RGB_LED
-      if (passby >> 12 == 1) {
-        passby=0;
-        leds[0].setHue(random(255));
-        FastLED.show();
-      }
-      #endif
     #endif
-    passby++;
+    
+    processButtons();
   }
 }
 
 // =============================================================== SETUP() ===============================================================
 void setup() {
 
-  #ifdef DEBUG_ON
-    Serial.begin(115200);
-  #endif
+#ifdef DEBUG_ON
+  Serial.begin(115200);
+#endif
 
-
-DEBUG("CARD: BEGIN()");
+DEBUG("CARD: BEGIN");
   Card.begin();
-  delay(1000);
+  delay(100);
   #ifdef RGB_LED
     FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
     FastLED.setBrightness(1);
   #endif
   //Card.testReadSpeed(READ_BUF_SECTORS,8);
-DEBUG("REVERB: INIT()");
+DEBUG("REVERB: INIT");
   Reverb.Init();
-  MidiInit(); // init midi input and handling of midi events
+ 
+DEBUG("MIDI: INIT");
+  MidiInit();
 
-DEBUG("SAMPLER: INIT()");
+DEBUG("SAMPLER: INIT");
   Sampler.init(&Card);
-  Sampler.setCurrentFolder(1);
-  
+  Sampler.setCurrentFolder(2);
+
 DEBUG("I2S: INIT");
   i2sInit();
+  
+  initButtons();
   
   xTaskCreatePinnedToCore( audio_task, "SynthTask", 6000, NULL, 25, &SynthTask, 0 );
  
@@ -198,17 +193,23 @@ DEBUG("I2S: INIT");
   timerAlarmEnable(timer2);
   DEBUG ("Timer(s) started");
   */
+  #ifdef C_MAJOR_ON_START
+  delay(100);
   Sampler.noteOn(60,100);
+  Sampler.noteOn(64,100);
+  Sampler.noteOn(67,100);
   delay(1000);
   Sampler.noteOff(60, false);
+  Sampler.noteOff(64, false);
+  Sampler.noteOff(67, false);
+  #endif
   DEBUG ("Setup() DONE");
   heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 }
 
 
 void loop() {
-  //timeClick();
-  //delay(1);
+
   #ifdef RGB_LED
   leds[0].setHue(1); //green
   FastLED.setBrightness(1);
@@ -216,67 +217,3 @@ void loop() {
   #endif
   vTaskDelete(NULL);
 }
-
-/*
-void timeClick() {
-  DEBF("MAIN: Active voices: %d of %d\r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
-  static int state = 0;
-  static bool OnOff = true;
-  state ++;
-  switch (state) {
-    case 0:
-      OnOff = false;
-      break;
-    case 1:
-      OnOff = true;
-      break;
-    case 2:
-      OnOff = false;
-      state = -1; // becomes 0 next time
-      break;
-  }
-  const int noteMin = 40 ;
-  const int noteMax = 80 ;
-  const int notePoly = MAX_POLYPHONY;
-  const int veloMin = 10;
-  const int veloMax = 127;
-  static int veloStep = 7;
-  static int iNoteOn = noteMin;
-  static int iNoteOff = noteMin;
-  static int velo = veloMin;
-  if (iNoteOn < noteMin) iNoteOn = (noteMax - noteMin + 1) + iNoteOn;
-  if (iNoteOn > noteMax) iNoteOn =  iNoteOn - (noteMax - noteMin + 1);
-  iNoteOff = iNoteOn - notePoly;
-  if (iNoteOff < noteMin) iNoteOff = (noteMax - noteMin + 1) + iNoteOff;
-  if (iNoteOff > noteMax) iNoteOff =  iNoteOff - (noteMax - noteMin + 1);
- 
-  taskYIELD();
-  Sampler.noteOn((uint8_t)iNoteOn, (uint8_t)velo);
-  Sampler.noteOff((uint8_t)iNoteOff, false);
-  if (OnOff) {
-    #ifdef RGB_LED
-    leds[0].setHue(random(255));
-    FastLED.setBrightness(1);
-    FastLED.show();
-    #endif
-    
-  } else {
-    #ifdef RGB_LED
-    FastLED.setBrightness(0);
-    FastLED.show();
-    #endif
-
-  }
- //DEBF("Note on %d @ %d , off %d\r\n", iNoteOn , velo , iNoteOff);
-  velo += veloStep;
-  if (velo > veloMax) {
-    velo = veloMax;
-    veloStep = -veloStep;
-  }
-  if (velo < veloMin) {
-    velo = veloMin;
-    veloStep = -veloStep;
-  }
-  iNoteOn++;
-}
-*/
