@@ -8,9 +8,9 @@ For the time being the sampler only supports S3 variant.
 It's possible to rearrange classes in order to allocate members dynamically, and run it on an ESP32, but ESP32 has a strong limitation: memory segmentation (SRAM0, SRAM1, SRAM2 and segments within these parts like BSS, IRAM, DRAM etc) is hardware defined and has different performance. So it's quite a challenge to fit all the objects and buffers in appropriate memory regions. I have tried and managed to compile, but the performance was much worse so I rolled back. If someone would like to, please fork the repository and try.
 
 # Dependencies
-It uses 
 * Fixed string library https://github.com/fatlab101/FixedString
 * Arduino MIDI library https://github.com/FortySevenEffects/arduino_midi_library
+* If you want to use RGB LEDs, then also FastLED library is needed https://github.com/FastLED/FastLED
 
 # Polyphony
 With the microSD cards that I have, the current setting is 19 stereo voices. I now set 8 sectors per read, which gives approx. 5 MB/s reading speed. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need. In theory, 5 MB/s at 44100 Hz 16 bit stereo should give 29 voices polyphony, so there is probably a room to improve to get more simultaneous voices. But the limitation can also be caused by the computing power and by the internal cache performance.
