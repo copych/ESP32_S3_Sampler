@@ -14,6 +14,7 @@ It's possible to rearrange classes in order to allocate members dynamically, and
 
 # Polyphony
 With the microSD cards that I have, the current setting is 19 stereo voices. I now set 8 sectors per read, which gives approx. 5 MB/s reading speed. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need. In theory, 5 MB/s at 44100 Hz 16 bit stereo should give 29 voices polyphony, so there is probably a room to improve to get more simultaneous voices. But the limitation can also be caused by the computing power and by the internal cache performance.
+
 PS. Of what I have tested, faster cards won't give you dramatical improvement in the matter of polyphony. I have tried a newer microSD which reads 8 sectors random blocks at apx. 7 MB/s, but only 20 voices I have managed to run.
 
 # Velocity layers
