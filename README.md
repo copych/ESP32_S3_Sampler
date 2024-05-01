@@ -171,13 +171,13 @@ noteoff=yes
 
 [note]
 name=D#1
-; assuming we have "SnareRest (2).WAV" file in the drumkit folder after copying all the files into a single dir.
+; assuming we have "#-SnareRest (2).WAV" files in the drumkit folder after copying all the files into a single dir.
 instr=SnareRest (2)
 noteoff=true
 
 [note]
 name=E1
-; assuming we have "Snare (2).WAV" file in the drumkit folder after copying all the files into a single dir.
+; assuming we have "#-Snare (2).WAV" files in the drumkit folder after copying all the files into a single dir.
 instr=snare (2)
 noteoff=0
 
