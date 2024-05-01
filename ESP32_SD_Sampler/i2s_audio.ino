@@ -81,6 +81,8 @@ size_t bytes_written;
     out_buf[out_buf_id][i*2] = (float)0x7fff * mix_buf_l[out_buf_id][i]; 
     out_buf[out_buf_id][i*2+1] = (float)0x7fff * mix_buf_r[out_buf_id][i];
    // if (i%4==0) DEBUG(out_buf[out_buf_id][i*2]);
+   
+   //if (out_buf[out_buf_id][i*2]) DEBF(" %d\r\n ", out_buf[out_buf_id][i*2]);
   }
   i2s_write(i2s_num, out_buf[out_buf_id], sizeof(out_buf[out_buf_id]), &bytes_written, portMAX_DELAY);
 #endif
@@ -102,7 +104,7 @@ static inline void IRAM_ATTR mixer() { // sum buffers
       sampler_out_r = sampler_r[out_buf_id][i] * attenuator;
 
 // TODO: add fx 
-      Reverb.Process(&sampler_out_l, &sampler_out_r);
+    //  Reverb.Process(&sampler_out_l, &sampler_out_r);
 
       mix_buf_l[out_buf_id][i] = (sampler_out_l);
       mix_buf_r[out_buf_id][i] = (sampler_out_r);
@@ -112,10 +114,14 @@ static inline void IRAM_ATTR mixer() { // sum buffers
 #ifdef DEBUG_MASTER_OUT
       if ( i % 16 == 0) meter = meter * 0.95f + fabs( mono_mix); 
 #endif
+
+  // if none of the following limitters is engaged, digital clipping can occur
+
       mix_buf_l[out_buf_id][i] = fclamp(mix_buf_l[out_buf_id][i] , -1.0f, 1.0f); // clipper
       mix_buf_r[out_buf_id][i] = fclamp(mix_buf_r[out_buf_id][i] , -1.0f, 1.0f);
- //    mix_buf_l[out_buf_id][i] = fast_shape( mix_buf_l[out_buf_id][i]); // soft limitter/saturator
- //    mix_buf_r[out_buf_id][i] = fast_shape( mix_buf_r[out_buf_id][i]);
+
+  //    mix_buf_l[out_buf_id][i] = fast_shape( mix_buf_l[out_buf_id][i]); // soft limitter/saturator
+  //    mix_buf_r[out_buf_id][i] = fast_shape( mix_buf_r[out_buf_id][i]);
    }
    
 #ifdef DEBUG_MASTER_OUT

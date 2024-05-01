@@ -3,62 +3,6 @@
 #include "sdmmc_cmd.h"
 
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-// ESP32-S3 allows using SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3)
-/*
-// default SDMMC GPIOs for S3:
-#define SDMMC_CMD 35
-#define SDMMC_CLK 36
-#define SDMMC_D0  37
-#define SDMMC_D1  38
-#define SDMMC_D2  33
-#define SDMMC_D3  34
-
-*/
-/*
-// TYPICAL dev board with two usb type-c connectors doesn't have GPIO 33 and 34
-#define SDMMC_CMD 3
-#define SDMMC_CLK 46 
-#define SDMMC_D0  9
-#define SDMMC_D1  10
-#define SDMMC_D2  11
-#define SDMMC_D3  12
-
-*/
-// LOLIN S3 PRO for example has a microSD socket, but D1 and D2 are not connected,
-// so if you dare you may solder these ones to GPIOs of your choice (please, refer 
-// to the docs choosing GPIOs, as they may have been used by some device already)
-// https://www.wemos.cc/en/latest/_static/files/sch_s3_pro_v1.0.0.pdf
-// LOLIN S3 PRO version (S3 allows configuring these ones):
-// 
-// DON'T YOU set LOLIN S3 PRO as a target board in Arduino IDE, because the board definition file 
-// seems to have some bugs, so you may have problems with MIDI. SET generic ESP32S3 Dev Module as your target!!!
-//
-
-#define SDMMC_CMD 11  // LOLIN PCB hardlink
-#define SDMMC_CLK 12  // PCB hardlink
-#define SDMMC_D0  13  // PCB hardlink
-#define SDMMC_D1  8   // my choice
-#define SDMMC_D2  10  // my choice
-#define SDMMC_D3  46  // PCB hardlink
-
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-
-// these pins require 10K pull-up, but if GPIO12 is pulled up on boot, we get a bootloop.
-// try using gpio_pullup_en(GPIO_NUM_12) or leave D2 as is 
-// GPIO2 pulled up probably won't let you switch to download mode, so disconnect it 
-// while uploading your sketch
-
-// General ESP32 (changing these pins is NOT possible)
-#define SDMMC_D0  2
-#define SDMMC_D1  4
-#define SDMMC_D2  12
-#define SDMMC_D3  13
-#define SDMMC_CLK 14
-#define SDMMC_CMD 15
-
-#endif
-
 // utility functions for other files to import
 esp_err_t SDMMC_FAT32::write_block(const void *source, uint32_t block, uint32_t size)
 {
@@ -271,6 +215,24 @@ esp_err_t SDMMC_FAT32::get_bpb() {
   return ret;
 }
 
+uint32_t SDMMC_FAT32::getNextSector(uint32_t curSector) {
+  if (curSector == 0) {
+    curSector = _sectorInBuf;
+    DEBUG("curSector = 0");
+  }
+  uint32_t curCluster = clusterBySector(curSector);
+  uint32_t nextSector = curSector + 1;
+  uint32_t nextCluster = clusterBySector(nextSector);
+  if (curCluster != nextCluster) {
+    nextCluster = getNextCluster(curCluster);
+    if (fat_entry_type(nextCluster)==LAST_CLUSTER) {
+      return 0;
+    }
+    nextSector = firstSectorOfCluster(nextCluster);
+  }
+  return nextSector;
+}
+
 uint32_t SDMMC_FAT32::getNextCluster(uint32_t cluster) {
   uint32_t nextCluster;
   uint32_t neededSector = fatSectorByCluster(cluster);
@@ -316,7 +278,7 @@ uint32_t SDMMC_FAT32::findEntryCluster(const fpath_t& search_path) {
   name = search_path;
   name.toUpperCase();
   name.replace("\\",""); 
-  DEBF("Searching in <%s> for [%s] entry:\r\n", _currentDir.c_str(), search_path.c_str());
+  DEBF("Searching in <%s> for [%s] entry cluster:\r\n", _currentDir.c_str(), search_path.c_str());
   rewindDir();
   entry = nextEntry();
   while (!entry->is_end) {
@@ -332,6 +294,11 @@ uint32_t SDMMC_FAT32::findEntryCluster(const fpath_t& search_path) {
   return first_cluster;
 }
 
+uint8_t* SDMMC_FAT32::readSector(uint32_t sec) {
+  read_sector(sec);
+  return &sector_buf[0];
+}
+
 uint8_t* SDMMC_FAT32::readFirstSector(const fname_t& fname) {
   uint32_t sec = findEntrySector(fname);
   read_sector(sec);
@@ -342,6 +309,16 @@ uint8_t* SDMMC_FAT32::readFirstSector(entry_t* entry) {
   uint32_t sec = entry->sectors[0].first;
   read_sector(sec);
   return &sector_buf[0];
+}
+
+uint8_t* SDMMC_FAT32::readNextSector(uint32_t curSector) {
+  uint32_t sec = getNextSector(curSector);
+  if (sec > 0) {
+    read_sector(sec);
+    return &sector_buf[0];
+  } else {
+    return (uint8_t*)nullptr;
+  }
 }
 
 void SDMMC_FAT32::setCurrentDir(fpath_t dir_path){
@@ -518,7 +495,11 @@ void SDMMC_FAT32::printCurrentDir() {
   int i = 0;
   ent = nextEntry();
   while (!(ent->is_end)) {
-    DEBF("%d:\t%s\t%s\t%d kB\r\n", i, ent->is_dir ? cdir : cfile, ent->name.c_str(), ent->size/1024);
+    if (ent->size >= 10240) {
+      DEBF("%d:\t%s\t%s\t%d kB\r\n", i, ent->is_dir ? cdir : cfile, ent->name.c_str(), ent->size/1024);
+    } else {
+      DEBF("%d:\t%s\t%s\t%d Bytes\r\n", i, ent->is_dir ? cdir : cfile, ent->name.c_str(), ent->size);
+    }
     ent = nextEntry();
     i++;
   }
@@ -536,10 +517,10 @@ int SDMMC_FAT32::fat_entry_type(uint32_t x) {
     if(x >= 0x2 && x <= 0xFFFFFEF)
         return USED_CLUSTER;
     if(x >= 0xFFFFFF0 && x <= 0xFFFFFF6)
-        DEBF("reserved value: %x\n", x);
+    //    DEBF("reserved value: %x\n", x);
     if(x >=  0xFFFFFF8  && x <= 0xFFFFFFF)
         return LAST_CLUSTER;
-    DEBF("impossible type value: %x\n", x);
+    // DEBF("impossible type value: %x\n", x);
     return LAST_CLUSTER; //???
 }
 

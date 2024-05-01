@@ -6,6 +6,7 @@
 
 #define MAX_NAME_LEN (64)   // must be dividible by 4
 #define MAX_PATH_LEN (128)  // must be dividible by 4
+#define MAX_STR_LEN (256)   // max string size
 #define BYTES_PER_SECTOR (512)
 #define FAT_CACHE_SECTORS (8)
 #define DIR_CACHE_SECTORS (8)
@@ -14,6 +15,7 @@
 
 using  fname_t = FixedString<MAX_NAME_LEN>   ;
 using  fpath_t = FixedString<MAX_PATH_LEN>   ;
+using  str_max_t = FixedString<MAX_STR_LEN>   ;
 
 // directory attribute types.
 enum {
@@ -50,7 +52,7 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__ ((packed)) {
   // if filename[0] == 0, then not allocated.
-  // 2-11 char of file name.  the "." is implied b/n bytes7 and 8
+  // 2-11 char of file name.  the "." is implied b/n bytes 7 and 8
   char filename[11];        // 0-10 File name (8 bytes) with extension (3 bytes)
   uint8_t   attr;           // 11 Attribute - a bitvector. 
                             //    Bit 0: read only. 

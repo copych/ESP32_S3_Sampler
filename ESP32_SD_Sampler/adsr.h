@@ -21,7 +21,7 @@ Modified by Copych, Jan 2024
 class Adsr
 {
   public:
-enum eSegment_t { ADSR_SEG_IDLE, ADSR_SEG_ATTACK, ADSR_SEG_DECAY, ADSR_SEG_SUSTAIN, ADSR_SEG_RELEASE, ADSR_SEG_HARD_RELEASE };
+enum eSegment_t { ADSR_SEG_IDLE, ADSR_SEG_ATTACK, ADSR_SEG_DECAY, ADSR_SEG_SUSTAIN, ADSR_SEG_RELEASE, ADSR_SEG_FAST_RELEASE };
 enum eEnd_t { END_REGULAR, END_FAST, END_NOW };
     Adsr() {}
     ~Adsr() {}
@@ -55,7 +55,7 @@ enum eEnd_t { END_REGULAR, END_FAST, END_NOW };
     void setAttackTime(float timeInS, float shape = 0.0f);
     void setDecayTime(float timeInS);
     void setReleaseTime(float timeInS);
-    void setHardReleaseTime(float timeInS);
+    void setfastReleaseTime(float timeInS);
 
   private:
     void setTimeConstant(float timeInS, float& time, float& coeff);
@@ -93,11 +93,11 @@ enum eEnd_t { END_REGULAR, END_FAST, END_NOW };
     float   attackTime_{-1.0f};
     float   decayTime_{-1.0f};
     float   releaseTime_{-1.0f};
-    float   hardReleaseTime_{-1.0f};
+    float   fastReleaseTime_{-1.0f};
     float   attackD0_{0.f};
     float   decayD0_{0.f};
     float   releaseD0_{0.f};
-    float   hardReleaseD0_{0.f};
+    float   fastReleaseD0_{0.f};
     int     sample_rate_;
     eSegment_t mode_{ADSR_SEG_IDLE};
     bool    gate_{false};

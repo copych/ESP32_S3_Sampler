@@ -1,5 +1,5 @@
 #pragma once
-
+#define RECEIVE_MIDI_CHAN   1
 
 #define CC_SUSTAIN          64
 // Global 

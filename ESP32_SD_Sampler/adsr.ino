@@ -8,7 +8,7 @@ void Adsr::init(float sample_rate, int blockSize) {
     attackTime_   = -1.f;
     decayTime_    = -1.f;
     releaseTime_  = -1.f;
-    hardReleaseTime_  = -1.f;
+    fastReleaseTime_  = -1.f;
     sus_level_    = 1.0f;
     x_            = 0.0f;
     gate_         = false;
@@ -17,7 +17,7 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    setTime(ADSR_SEG_HARD_RELEASE, 0.0008f);
+    setTime(ADSR_SEG_FAST_RELEASE, 0.0002f);
 }
 
 void Adsr::retrigger(eEnd_t hardness) {
@@ -30,9 +30,8 @@ void Adsr::retrigger(eEnd_t hardness) {
       break;
     case END_FAST:
     case END_REGULAR:
-    default: {
-      ;
-      }
+    default:
+      D0_ = attackD0_;
   }
 }
 
@@ -46,8 +45,8 @@ void Adsr::end(eEnd_t hardness) {
       x_ = 0.f;
       break;
     case END_FAST:
-      mode_ = ADSR_SEG_IDLE;
-      D0_ = hardReleaseD0_;
+      mode_ = ADSR_SEG_FAST_RELEASE;
+      D0_ = fastReleaseD0_;
       break;
     case END_REGULAR:
     default:
@@ -77,9 +76,9 @@ void Adsr::setTime(int seg, float time) {
         setTimeConstant(time, releaseTime_, releaseD0_);
       }
       break;
-    case ADSR_SEG_HARD_RELEASE:
+    case ADSR_SEG_FAST_RELEASE:
       {
-        setTimeConstant(time, hardReleaseTime_, hardReleaseD0_);
+        setTimeConstant(time, fastReleaseTime_, fastReleaseD0_);
       }
       break;
     default: return;
@@ -100,6 +99,8 @@ void Adsr::setAttackTime(float timeInS, float shape) {
       attackD0_ = 1.f;  // instant change
   }
 }
+
+
 void Adsr::setDecayTime(float timeInS) {
   setTimeConstant(timeInS, decayTime_, decayD0_);
 }
@@ -108,8 +109,8 @@ void Adsr::setReleaseTime(float timeInS) {
   setTimeConstant(timeInS, releaseTime_, releaseD0_);
 }
 
-void Adsr::setHardReleaseTime(float timeInS) {
-  setTimeConstant(timeInS, hardReleaseTime_, hardReleaseD0_);
+void Adsr::setfastReleaseTime(float timeInS) {
+  setTimeConstant(timeInS, fastReleaseTime_, fastReleaseD0_);
 }
 
 
@@ -143,7 +144,7 @@ float Adsr::process() {
       break;
     case ADSR_SEG_DECAY:
     case ADSR_SEG_RELEASE:
-    case ADSR_SEG_HARD_RELEASE:
+    case ADSR_SEG_FAST_RELEASE:
       x_ += (float)D0_ * ((float)target_ - (float)x_);
       out = x_;
       if (out < 0.0f) {

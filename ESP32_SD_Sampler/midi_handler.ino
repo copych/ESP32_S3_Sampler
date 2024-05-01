@@ -10,7 +10,7 @@ inline void MidiInit() {
     MIDI.setHandleControlChange(handleCC);
     MIDI.setHandlePitchBend(handlePitchBend);
     MIDI.setHandleProgramChange(handleProgramChange);
-    MIDI.begin(MIDI_CHANNEL_OMNI);
+    MIDI.begin(RECEIVE_MIDI_CHAN);
 
     #ifdef RGB_LED
       leds[0].setHue(100);//red
@@ -28,7 +28,7 @@ inline void MidiInit() {
     MIDI2.setHandleControlChange(handleCC);
     MIDI2.setHandlePitchBend(handlePitchBend);
     MIDI2.setHandleProgramChange(handleProgramChange);
-    MIDI2.begin(MIDI_CHANNEL_OMNI);
+    MIDI2.begin(RECEIVE_MIDI_CHAN);
   #endif
 
 }

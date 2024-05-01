@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "misc.h"
 #include "sdmmc.h"
 #include <vector>
@@ -22,13 +23,14 @@ CRGB leds[1];
     static const long BaudRate = 115200;
     static const bool Use1ByteParsing = false;
   };
+
   MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings> serialMIDI(Serial);
   MIDI_NAMESPACE::MidiInterface<MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>> MIDI((MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>&)serialMIDI);
 
 #endif
 
 #ifdef MIDI_VIA_SERIAL2
-// MIDI port on UART2,   pins 16 (RX) and 17 (TX) prohibited, as they are used for PSRAM
+// MIDI port on UART2,   pins 16 (RX) and 17 (TX) prohibited on ESP32, as they are used for PSRAM
 struct Serial2MIDISettings : public midi::DefaultSettings {
   static const long BaudRate = 31250;
   static const int8_t RxPin  = MIDIRX_PIN;
@@ -55,6 +57,7 @@ static float sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
 static float mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
 static float mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
 int16_t out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
+portMUX_TYPE eventMux = portMUX_INITIALIZER_UNLOCKED; 
 /*
 hw_timer_t * timer1 = NULL;                 // Timer variables
 hw_timer_t * timer2 = NULL;                 // Timer variables
@@ -84,11 +87,11 @@ static inline void IRAM_ATTR sampler_generate_buf();
 
 // =============================================================== PER CORE TASKS ===============================================================
 static void IRAM_ATTR audio_task(void *userData) { // core 0 task
+  DEBUG ("core 0 audio task run");
   vTaskDelay(10);
   volatile size_t t1,t2,t3,t4;
   out_buf_id = 0;
   gen_buf_id = 1;
-  DEBUG ("core 0 audio task run");
   while (true) {
     t1=micros();
     sampler_generate_buf();
@@ -115,8 +118,8 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
 }
  
 static void  control_task(void *userData) { // core 1 task
-  vTaskDelay(10);
   DEBUG ("core 1 control task run");
+  vTaskDelay(10);
   static uint32_t passby = 0;
   while (true) { 
     /*
@@ -125,59 +128,72 @@ static void  control_task(void *userData) { // core 1 task
       timeClick();
     }
     */      
-    /*
-    if (passby >> 8 == 1) {
-    passby=0;
+    if (passby % 16 == 0) {      
+      processButtons();
+    //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
+    //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
     }
     passby++;
-    */
-    Sampler.fillBuffer();
+    
 
+    Sampler.fillBuffer();
+    
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
     #endif
 
+    
     #ifdef MIDI_VIA_SERIAL2
       MIDI2.read();
     #endif
     
-    processButtons();
+    Sampler.fillBuffer();
+    
+    taskYIELD();
   }
 }
 
 // =============================================================== SETUP() ===============================================================
 void setup() {
-
+  
 #ifdef DEBUG_ON
-  Serial.begin(115200);
+  USBSerial.begin(115200);
 #endif
 
-DEBUG("CARD: BEGIN");
-  Card.begin();
-  delay(100);
+delay(100);
+
   #ifdef RGB_LED
     FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
     FastLED.setBrightness(1);
   #endif
-  //Card.testReadSpeed(READ_BUF_SECTORS,8);
+  
+
+
+DEBUG("CARD: BEGIN");
+  Card.begin();
+  
+//delay(1000);
+ // Card.testReadSpeed(READ_BUF_SECTORS,8);
+  
 DEBUG("REVERB: INIT");
   Reverb.Init();
  
 DEBUG("MIDI: INIT");
   MidiInit();
-
 DEBUG("SAMPLER: INIT");
+
   Sampler.init(&Card);
-  Sampler.setCurrentFolder(2);
+  
+  Sampler.setCurrentFolder(1);
 
 DEBUG("I2S: INIT");
   i2sInit();
   
   initButtons();
   
-  xTaskCreatePinnedToCore( audio_task, "SynthTask", 6000, NULL, 25, &SynthTask, 0 );
+  xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 23, &SynthTask, 0 );
  
-  xTaskCreatePinnedToCore( control_task, "ControlTask", 4000, NULL, 8, &ControlTask, 1 );
+  xTaskCreatePinnedToCore( control_task, "ControlTask", 6000, NULL, 10, &ControlTask, 1 );
 
   // setting timer interrupt
   /*
@@ -204,7 +220,7 @@ DEBUG("I2S: INIT");
   Sampler.noteOff(67, false);
   #endif
   DEBUG ("Setup() DONE");
-  heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+ // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 }
 
 

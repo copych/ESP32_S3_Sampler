@@ -29,8 +29,8 @@ typedef struct __attribute__((packed)){
 } wav_header_t;
 
 typedef struct {
-  int       byte_offset;
-  size_t    size;
+  int       byte_offset = 44;     // = wav header size
+  uint32_t  size;
   float     orig_freq;
   float     speed         = 0.0f; // samples
   uint8_t   orig_velo_layer;
@@ -38,9 +38,10 @@ typedef struct {
   int       channels      = -1;
   int       bit_depth     = -1;
   float     amp           = 1.0f;
-  float     attack_time   = 0.001f;
-  float     decay_time    = 0.1f;
-  float     release_time  = 0.5f;
+  float     attack_time   = 0.0f;
+  float     decay_time    = 0.5f;
+  float     sustain_level = 1.0f;
+  float     release_time  = 12.0f;
   std::vector<chain_t>   sectors;
 } sample_t;
 
@@ -61,22 +62,27 @@ class Voice {
     inline uint8_t    getMidiVelo()   {return _midiVelo;}
     inline uint32_t   getBufPlayed()  {return _bufPlayed;}
     inline float      getAmplitude()  {return _amplitude;}
-    inline float      getAge()        {return (float)_bufPlayed * (float)_ageCoef;}
+    inline float      getFeedScore()        ;
+    inline int        getPlayPos()    {return _bufPosSmp[_idToPlay];}
+    inline uint32_t   getBufSize()    {return _bufSizeSmp;}
     inline void       toggleBuf();
     inline float      interpolate(float& s1, float& s2, float i);
     
   private:
     SDMMC_FAT32*        _Card                   ;
     bool*               _sustain                ; // every voice needs to know if sustain is ON. Propagating it in a loop I thought wasn't a good idea
-    float               _amp                    = 1.0f;
+    volatile float      _amp                    = 1.0f;
     volatile bool       _active                 = false;
     volatile int16_t*   _buffer0;               // pointer to the 1st allocated SD-reader buffer
     volatile int16_t*   _buffer1;               // pointer to the 2nd allocated SD-reader buffer
-    volatile int16_t*   _playBuf;               // pointer to the buffer which is ready to play (one of the two allocated)
-    volatile int16_t*   _fillBuf;               // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile int16_t*   _playBuf16;               // pointer to the buffer which is ready to play (one of the two allocated)
+    volatile int16_t*   _fillBuf16;               // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile uint8_t*   _playBuf8;               // pointer to the buffer which is ready to play (one of the two allocated)
+    volatile uint8_t*   _fillBuf8;               // pointer to the buffer which awaits filling (one of the two allocated)
     uint32_t            _bufSizeBytes           = READ_BUF_SECTORS * BYTES_PER_SECTOR;
     uint32_t            _bufSizeSmp             = 0;     
     uint32_t            _hunger                 = 0;
+    volatile int        _offset                 = 0; // buf offset 
     volatile int        _bufPosSmp[2]           = {0, 0}; // sample pos, it depends on the number of channels and bit depth of a wav file assigned to this voice;
     float               _bufPosSmpF             = 0.0;    // exact calculated sample reading position including speed, pitchbend etc. 
     volatile bool       _bufEmpty[2]            = {true, true};
@@ -97,12 +103,13 @@ class Voice {
     volatile float      _amplitude              = 0.0;
     volatile bool       _pressed                = false;
     volatile bool       _eof                    = true;
-    float               _ageCoef                = 1.0f;
+    float               _feedScoreCoef          = 1.0f;
     float               _hungerCoef             = 1.0f;
     sample_t            _sampleFile             ;
     sample_t            _nextFile               ;
     uint8_t             _nextNote               = 0;
     uint8_t             _nextVelo               = 0;
     volatile bool       _queued                 = false;
+    int                 _lowest                 = 1;
     Adsr                AmpEnv                  ;
 };
