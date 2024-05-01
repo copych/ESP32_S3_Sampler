@@ -35,25 +35,228 @@ What's not working:
 * It lacks schematics, but, please, check the .h files for the connectivity info.
 * Demo video shall be done
 
-# SAMPLER.INI example
-here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
-```
-melodic=<NAME><OCTAVE>v<VELO:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>
-normalized=false
-enveloped=true
-# For example, with this template 
-# the file named F#4v7.wav will be treated as F# of the 4th octave
-# played with 7th velocity of 1 through 16 possible.
-# 
-# Everything is case insensitive. Spaces are processed as valid chars.
-# Only WAV files are processed.
-# 
-# Sample file name template to parse:
-# Parsed fields:
-# <NAME> - note name in sharp (#) or flat(b) notation: both Eb and D# are valid
-# <OCTAVE> - octave number
-# <VELO:a,b,c...z> - velocity layers from lowest to highest, comma separated,
-# numbers or short strings supported, no quotes needed i.e. <VELO:lo,m,hi> should be valid
-# <NUMBER> - parsed, but not used - some digits
-```
+# SAMPLER.INI examples
 One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
+
+Here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
+```
+[sampleset]
+title = Salamander Grand Piano
+; type=percussive/melodic
+type=melodic
+; Are all the samples of equal loudness? If true then we apply amplification according to the midi note velocity.
+normalized=true
+; Are the samples already amp-enveloped?
+enveloped=true
+
+
+[filename]
+# Filename elements recognized:
+; <NAME> - note name in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
+; <OCTAVE> - octave number
+; <NUMBER> - parsed, but not used for now: i.e. some numbers initially used for naming, sorting or whatever
+; <VELO> velocity layer
+; <INSTR> instruments names (mostly percussion) used in filenames, initially they are collected from this ini file
+; elements without brackets will be treated as some constant string delimeters
+
+; these elements are case insensitive, heading and trailing spaces are trimmed.
+template=<NAME><OCTAVE>v<VELO>
+
+; we must provide these variants along with the template. The order is important: from the most quiet to the most loud, comma separated
+veloVariants = 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+
+[range]
+first = F#6
+last = G8
+noteoff = false
+
+# [note] sections 
+; instr=instrument_name(as in filename)
+; noteoff=0/1 (0=ignore, 1=end note)
+; speed=float_number(1.0 means unchanged (default), 1.2 means 20% faster which is higher pitch, 0.9 is 10% lower)
+
+
+[envelope]
+default = true
+; times in seconds
+attackTime = 0.0
+decayTime = 0.05
+releaseTime = 12.0
+
+; sustain level 0.0 - 1.0
+sustainLevel = 1.0
+```
+
+another sampler.ini example is for a drumkit MuldjordKit-SFZ-20201018, all the samples moved to a single folder
+```
+[sampleset]
+title = Generic Drum Kit
+
+; type=percussive/melodic
+; different technics used while spreading samples over the clavier
+; percussive type allows per-note fx-send level
+type=percussive
+
+; Are all the samples of equal loudness? If true then we apply amplification according to the midi note velocity.
+normalized=true
+
+; Are the samples already amp-enveloped?
+enveloped=true
+
+[envelope]
+default = true
+
+; times in seconds
+attackTime = 0.0
+decayTime = 0.05
+releaseTime = 12.0
+
+; sustain level 0.0 - 1.0
+sustainLevel = 1.0
+
+
+[filename]
+# Filename elements recognized:
+; <NAME> - note name=name in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
+; <OCTAVE> - octave number
+; <NUMBER> - parsed, but not used for now: i.e. some numbers initially used for naming, sorting or whatever
+; <VELO> velocity layer
+; <INSTR> instruments names (mostly percussion) used in filenames, initially they are collected from this ini file
+; only instrument names mentioned in this ini (in [note] or [range] sections) will be recognized 
+; elements without brackets will be treated as some constant string delimeters
+; these elements are case insensitive, heading and trailing spaces are trimmed.
+; template should be specified first in this section
+template=<VELO>-<INSTR>
+
+; we must provide these variants. The order is important: from the most quiet to the most loud, comma separated
+veloVariants = 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+
+
+[group]
+notes = F#1,A#1,G#1
+
+[group]
+notes = G#2,A2
+
+[group]
+notes = C#2,D2
+
+
+# [note] sections
+; name = notename in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
+; instr = instrument_name(as in filename)
+; noteoff = 0/1 (0 is 'ignore', 1 is 'end note'), also yes/no, true/false are recognized
+; speed = float_number (1.0 means unchanged (default), 1.2 means 20% faster which is higher pitch, 0.9 is 10% lower)
+; only instrument names mentioned in this ini (in [note] or [range] sections) will be recognized 
+
+[note]
+name=b0
+instr=kdrumL
+noteoff=false
+
+[note]
+name=c1
+instr=kdrumR
+noteoff=no
+
+[note]
+name=C#1
+instr=SnareRest
+noteoff=0
+
+[note]
+name=D1
+instr=Snare
+noteoff=yes
+
+[note]
+name=D#1
+instr=SnareRest (2)
+noteoff=true
+
+[note]
+name=E1
+instr=snare (2)
+noteoff=0
+
+[note]
+name=F1
+instr=Tom1
+noteoff=0
+
+[note]
+name=G1
+instr=Tom2
+noteoff=0
+
+[note]
+name=A1
+instr=Tom3
+noteoff=0
+
+[note]
+name=B1
+instr=Tom4
+noteoff=0
+
+[note]
+name=C2
+instr=Tom4
+noteoff=0
+speed=1.15
+
+[note]
+name=F#1
+instr=HiHatClosed
+noteoff=0
+
+[note]
+name=A#1
+instr=HiHatOpen
+noteoff=1
+
+[note]
+name=C#2
+instr=CrashL
+noteoff=0
+
+[note]
+name=D2
+instr=CrashL
+noteoff=true
+
+[note]
+name=E2
+instr=China
+noteoff=0
+
+[note]
+name=G#2
+instr=CrashR
+noteoff=0
+
+[note]
+name=A2
+instr=CrashR
+noteoff=yes
+
+[note]
+name=D#2
+instr=RideL
+noteoff=0
+
+[note]
+name=B2
+instr=RideR
+noteoff=0
+
+[note]
+name=F2
+instr=RideLBell
+noteoff=0
+
+[note]
+name=A#2
+instr=RideRBell
+noteoff=0
+```
