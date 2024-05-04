@@ -6,7 +6,7 @@
 
 #define DMA_NUM_BUF 2
 #define DMA_BUF_LEN 32
-#define READ_BUF_SECTORS 7      // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
+#define READ_BUF_SECTORS 8      // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
 #define FASTLED_INTERNAL        // remove annoying pragma messages
 
 #define SAMPLE_RATE 44100

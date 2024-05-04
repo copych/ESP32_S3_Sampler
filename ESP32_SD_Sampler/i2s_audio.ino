@@ -104,7 +104,7 @@ static inline void IRAM_ATTR mixer() { // sum buffers
       sampler_out_r = sampler_r[out_buf_id][i] * attenuator;
 
 // TODO: add fx 
-    //  Reverb.Process(&sampler_out_l, &sampler_out_r);
+      Reverb.Process(&sampler_out_l, &sampler_out_r);
 
       mix_buf_l[out_buf_id][i] = (sampler_out_l);
       mix_buf_r[out_buf_id][i] = (sampler_out_r);

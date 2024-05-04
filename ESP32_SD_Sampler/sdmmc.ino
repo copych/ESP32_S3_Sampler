@@ -106,6 +106,7 @@ void SDMMC_FAT32::begin(void)
 
   gpio_pulldown_dis((gpio_num_t)SDMMC_D0);
   gpio_pulldown_dis((gpio_num_t)SDMMC_D1);
+  gpio_pulldown_dis((gpio_num_t)SDMMC_D2); 
   gpio_pulldown_dis((gpio_num_t)SDMMC_D3);
   gpio_pulldown_dis((gpio_num_t)SDMMC_CLK);
   gpio_pulldown_dis((gpio_num_t)SDMMC_CMD);
@@ -115,8 +116,7 @@ void SDMMC_FAT32::begin(void)
   gpio_pullup_en((gpio_num_t)SDMMC_CLK);
   gpio_pullup_en((gpio_num_t)SDMMC_CMD);
  #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  gpio_pulldown_dis((gpio_num_t)SDMMC_D2); 
-  gpio_pullup_en((gpio_num_t)SDMMC_D2); // formally this is required, nevertheless GPIO12 of ESP32 set HIGH in some cases leads to a bootloop, so it's up to you if you want it for ESP32
+  gpio_pullup_en((gpio_num_t)SDMMC_D2); // formally this is required, nevertheless GPIO12 of ESP32 set HIGH in some cases leads to a bootloop or a bootstop, so it's up to you if you want it for ESP32
   slot_config.clk = (gpio_num_t)SDMMC_CLK;
   slot_config.cmd = (gpio_num_t)SDMMC_CMD;
   slot_config.d0  = (gpio_num_t)SDMMC_D0;

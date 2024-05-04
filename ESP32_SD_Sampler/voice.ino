@@ -54,6 +54,32 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo){
     _idToFill               = 0;
     _idToPlay               = 1;
     _curChain               = 0;
+    switch (smpFile.bit_depth) {
+      case 24:
+        switch (smpFile.channels) {
+          case 1:
+            _bufCoef = 1;
+            getSampleVariants = &Voice::getSample24m;
+            break;
+          case 2:
+          default:
+            _bufCoef = 1;
+            getSampleVariants = &Voice::getSample24s;
+        }
+        break;
+      case 16:
+      default:
+        switch (smpFile.channels) {
+          case 1:
+            _bufCoef = 2;
+            getSampleVariants = &Voice::getSample16m;
+            break;
+          case 2:
+          default:
+            _bufCoef = 2;
+            getSampleVariants = &Voice::getSample16s;
+        }
+    }
     if (smpFile.size == 0) {
       _divFileSize          = 0.001f;
     } else {
@@ -101,7 +127,7 @@ void Voice::end(bool hard){
 }
 
 
-void Voice::getSample(float& sampleL, float& sampleR) {
+void Voice::getSample16m(float& sampleL, float& sampleR) {
   static int pos;
   static float env;
   static uint32_t bytes_played;
@@ -112,104 +138,135 @@ void Voice::getSample(float& sampleL, float& sampleR) {
     env =  (float)AmpEnv.process() * (float)_amp ;
     //env = _amp;
     if (AmpEnv.isIdle()) {      
-      taskENTER_CRITICAL(&eventMux);
         if (_queued) {
           start(_nextFile, _nextNote, _nextVelo);
         } else {
           _active = false;
         }
-      taskEXIT_CRITICAL(&eventMux);
+      // _amplitude = 0.0f;
+      //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
+      return;
+    } else {   
+      pos = _bufPosSmp[_idToPlay ] + _offset; 
+      switch (pos) {
+        case 0:                           // we will use  -1 index for interpolation
+          l1 = _lackingL;
+          l2 = _playBuf16[ 0 ];
+          break;
+        default:
+          l1 = _playBuf16[ pos - 1 ];
+          l2 = _playBuf16[ pos ];
+      }
+      sampleL = sampleR = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
+ 
+      bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
+      
+      /*
+      if ( bytes_played % 16 == 0 ) {
+        _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
+      } 
+      */
+      if ( bytes_played >= _sampleFile.size ) {
+        end(true);
+       // DEBF("VOICE: bytes played >= size\r\n");
+      }
+      //   DEBF("Played %d bytes\r\n", bytes_played);
+      _bufPosSmpF += (float)_speed ;//* _speedModifier;
+      _bufPosSmp[_idToPlay ] = _bufPosSmpF;
+      if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
+     //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
+        toggleBuf();        
+      }
+    }
+  }
+}
+
+void Voice::getSample16s(float& sampleL, float& sampleR) {
+  static int pos;
+  static float env;
+  static uint32_t bytes_played;
+  float l1, l2, r1, r2;
+  sampleL = sampleR = 0.0f;
+  if (_bufEmpty[0] && _bufEmpty[1]) return;
+  if (_active) {
+    env =  (float)AmpEnv.process() * (float)_amp ;
+    //env = _amp;
+    if (AmpEnv.isIdle()) {      
+        if (_queued) {
+          start(_nextFile, _nextNote, _nextVelo);
+        } else {
+          _active = false;
+        }
       // _amplitude = 0.0f;
       //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
       return;
     } else {
-      switch (_sampleFile.bit_depth) {
-        case 24:
-          switch (_sampleFile.channels) {
-            case 1:                               // 24 bit mono
-              //todo
-              break;
-            case 2:                               // 24 bit stereo
-            default:
-              pos = (uint32_t)_offset + (uint32_t)_smpSize * (uint32_t)_bufPosSmp[_idToPlay ];  // pos in a byte buffer
-              // DEBF("pos = %d\r\n", pos);
-              switch (_bufPosSmp[_idToPlay ]) {
-                case 0:
-                  switch (_offset) {
-                    case 2:
-                      l1 = _lackingL;
-                      r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[0])     | static_cast<uint16_t>(_playBuf8[1])<<8 );
-                      l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[3])     | static_cast<uint16_t>(_playBuf8[4])<<8 );
-                      r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[6])     | static_cast<uint16_t>(_playBuf8[7])<<8 );
-                      break;
-                    case 4:
-                      l1 = (int16_t)( static_cast<uint16_t>(_lackingL)        | static_cast<uint16_t>(_playBuf8[0])<<8 ); 
-                      r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[2])     | static_cast<uint16_t>(_playBuf8[3])<<8 );
-                      l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[5])     | static_cast<uint16_t>(_playBuf8[6])<<8 );
-                      r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[8])     | static_cast<uint16_t>(_playBuf8[9])<<8 );
-                      break;
-                    case 0:
-                    default:
-                      l1 = _lackingL;
-                      r1 = _lackingR;
-                      l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1])     | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
-                      r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4])     | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
-                  }
-                  // DEBF("VOICE: POS 0 : offset: %d l1: %f l2: %f r1: %f r2: %f \r\n", _offset, l1,l2,r1,r2);
-                  break;
-                default:
-                  l1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-5]) | static_cast<uint16_t>(_playBuf8[pos-4])<<8 );
-                  r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-2]) | static_cast<uint16_t>(_playBuf8[pos-1])<<8 );
-                  l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1]) | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
-                  r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4]) | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
-              }
-              // if (fabs(r1-r2)>10000.0f) DEBF("pos: %d smpPos: %d fPos: %f _offset: %d \r\n", pos, _bufPosSmp[_idToPlay ], _bufPosSmpF, _offset);
-              
-              sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
-              sampleR = (float)interpolate( r1, r2, _bufPosSmpF ) * (float)env;
-          } 
-          bytes_played = (uint32_t)_bufPlayed * BUF_SIZE_BYTES + (uint32_t)pos + (uint32_t)_smpSize;
-          
+      pos = 2 * _bufPosSmp[_idToPlay ] + _offset; 
+      // DEBF("pos = %d\r\n", pos);
+      switch (_bufPosSmp[_idToPlay ]) {
+        case 0:                           // we will use  -1 index for interpolation
+          l1 = _lackingL;
+          r1 = _lackingR;
+          l2 = _playBuf16[ 0 ];
+          r2 = _playBuf16[ 1 ];
+          // DEBF("VOICE: POS 0 : offset: %d \r\n", _offset);
           break;
-        case 16:
         default:
-          switch (_sampleFile.channels) {
-            case 1:                               // 16 bit mono sample file
-              pos = _bufPosSmp[_idToPlay ] + _offset; 
-              switch (pos) {
-                case 0:                           // we will use  -1 index for interpolation
-                  l1 = _lackingL;
-                  l2 = _playBuf16[ 0 ];
-                  break;
-                default:
-                  l1 = _playBuf16[ pos - 1 ];
-                  l2 = _playBuf16[ pos ];
-              }
-              sampleL = sampleR = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
-              break;
-            case 2:                               // 16 bit stereo sample file
-            default:
-              pos = 2 * _bufPosSmp[_idToPlay ] + _offset; 
-              // DEBF("pos = %d\r\n", pos);
-              switch (_bufPosSmp[_idToPlay ]) {
-                case 0:                           // we will use  -1 index for interpolation
-                  l1 = _lackingL;
-                  r1 = _lackingR;
-                  l2 = _playBuf16[ 0 ];
-                  r2 = _playBuf16[ 1 ];
-                  // DEBF("VOICE: POS 0 : offset: %d \r\n", _offset);
-                  break;
-                default:
-                  l1 = _playBuf16[ pos - 2 ];
-                  r1 = _playBuf16[ pos - 1 ];
-                  l2 = _playBuf16[ pos ];
-                  r2 = _playBuf16[ pos + 1 ];
-              }
-              sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
-              sampleR = (float)interpolate( r1, r2, _bufPosSmpF ) * (float)env;
-          }
-          bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
+          l1 = _playBuf16[ pos - 2 ];
+          r1 = _playBuf16[ pos - 1 ];
+          l2 = _playBuf16[ pos ];
+          r2 = _playBuf16[ pos + 1 ];
       }
+      sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
+      sampleR = (float)interpolate( r1, r2, _bufPosSmpF ) * (float)env;
+      
+      bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
+      
+      /*
+      if ( bytes_played % 16 == 0 ) {
+        _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
+      } 
+      */
+      if ( bytes_played >= _sampleFile.size ) {
+        end(true);
+       // DEBF("VOICE: bytes played >= size\r\n");
+      }
+       //   DEBF("Played %d bytes\r\n", bytes_played);
+      _bufPosSmpF += (float)_speed ; // * _speedModifier;
+      _bufPosSmp[_idToPlay ] = _bufPosSmpF;
+      if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
+       //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
+        toggleBuf();        
+      }
+    }
+  }
+}
+
+void Voice::getSample24m(float& sampleL, float& sampleR) {
+  static int pos;
+  static float env;
+  static uint32_t bytes_played;
+  float l1, l2, r1, r2;
+  sampleL = sampleR = 0.0f;
+  if (_bufEmpty[0] && _bufEmpty[1]) return;
+  if (_active) {
+    env =  (float)AmpEnv.process() * (float)_amp ;
+    //env = _amp;
+    if (AmpEnv.isIdle()) {      
+        if (_queued) {
+          start(_nextFile, _nextNote, _nextVelo);
+        } else {
+          _active = false;
+        }
+      // _amplitude = 0.0f;
+      //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
+      return;
+    } else {
+      // 24 bit mono
+      //todo
+
+      bytes_played = (uint32_t)_bufPlayed * BUF_SIZE_BYTES + (uint32_t)pos + (uint32_t)_smpSize;
+      
       /*
       if ( bytes_played % 16 == 0 ) {
         _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
@@ -222,13 +279,92 @@ void Voice::getSample(float& sampleL, float& sampleR) {
    //   DEBF("Played %d bytes\r\n", bytes_played);
       _bufPosSmpF += (float)_speed ;//* _speedModifier;
       _bufPosSmp[_idToPlay ] = _bufPosSmpF;
-      if (_bufPosSmp[_idToPlay ]  >= _bufSizeSmp-1 ) {
+      if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
+     //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
         toggleBuf();        
       }
     }
   }
 }
 
+void Voice::getSample24s(float& sampleL, float& sampleR) {
+  static int pos;
+  static float env;
+  static uint32_t bytes_played;
+  float l1, l2, r1, r2;
+  sampleL = sampleR = 0.0f;
+  if (_bufEmpty[0] && _bufEmpty[1]) return;
+  if (_active) {
+    env =  (float)AmpEnv.process() * (float)_amp ;
+    //env = _amp;
+    if (AmpEnv.isIdle()) {      
+        if (_queued) {
+          start(_nextFile, _nextNote, _nextVelo);
+        } else {
+          _active = false;
+        }
+      // _amplitude = 0.0f;
+      //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
+      return;
+    } else {
+      pos = (uint32_t)_offset + (uint32_t)_smpSize * (uint32_t)_bufPosSmp[_idToPlay ];  // pos in a byte buffer
+      // DEBF("pos = %d\r\n", pos);
+      switch (_bufPosSmp[_idToPlay ]) {
+        case 0:
+          switch (_offset) {
+            case 2:
+              l1 = _lackingL;
+              r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[0])     | static_cast<uint16_t>(_playBuf8[1])<<8 );
+              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[3])     | static_cast<uint16_t>(_playBuf8[4])<<8 );
+              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[6])     | static_cast<uint16_t>(_playBuf8[7])<<8 );
+              break;
+            case 4:
+              l1 = (int16_t)( static_cast<uint16_t>(_lackingL)        | static_cast<uint16_t>(_playBuf8[0])<<8 ); 
+              r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[2])     | static_cast<uint16_t>(_playBuf8[3])<<8 );
+              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[5])     | static_cast<uint16_t>(_playBuf8[6])<<8 );
+              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[8])     | static_cast<uint16_t>(_playBuf8[9])<<8 );
+              break;
+            case 0:
+            default:
+              l1 = _lackingL;
+              r1 = _lackingR;
+              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1])     | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
+              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4])     | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
+          }
+          // DEBF("VOICE: POS 0 : offset: %d l1: %f l2: %f r1: %f r2: %f \r\n", _offset, l1,l2,r1,r2);
+          break;
+        default:
+          l1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-5]) | static_cast<uint16_t>(_playBuf8[pos-4])<<8 );
+          r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-2]) | static_cast<uint16_t>(_playBuf8[pos-1])<<8 );
+          l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1]) | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
+          r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4]) | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
+      }
+      // if (fabs(r1-r2)>10000.0f) DEBF("pos: %d smpPos: %d fPos: %f _offset: %d \r\n", pos, _bufPosSmp[_idToPlay ], _bufPosSmpF, _offset);
+      
+      sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
+      sampleR = (float)interpolate( r1, r2, _bufPosSmpF ) * (float)env;
+      
+      bytes_played = (uint32_t)_bufPlayed * BUF_SIZE_BYTES + (uint32_t)pos + (uint32_t)_smpSize;
+      
+      /*
+      if ( bytes_played % 16 == 0 ) {
+        _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
+      } 
+      */
+      if ( bytes_played >= _sampleFile.size ) {
+        end(true);
+       // DEBF("VOICE: bytes played >= size\r\n");
+      }
+   //   DEBF("Played %d bytes\r\n", bytes_played);
+      _bufPosSmpF += (float)_speed ;//* _speedModifier;
+      _bufPosSmp[_idToPlay ] = _bufPosSmpF;
+      if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
+     //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
+        toggleBuf();        
+      }
+    }
+  }
+}
 
 void  Voice::feed() {
   //volatile size_t t1,t2;
@@ -267,12 +403,13 @@ void  Voice::feed() {
       _fillBuf8               = (uint8_t*)_buffer1;
       _bufPosSmp[_idToFill]   = _bufSizeSmp;
       _bufPosSmp[_idToPlay]   = 0; // skip wav header in buffer, position 0 will be used for interpolation
-      if (_smpSize==2 || _smpSize==4 ) _offset = _sampleFile.byte_offset / 2; // int16_t
-      if (_smpSize==3 || _smpSize==6 ) _offset = _sampleFile.byte_offset;  // bytes
+      _offset = _sampleFile.byte_offset / _bufCoef;
+      _samplesInBuf = _bufSizeSmp - (_offset/_smpSize * _bufCoef);
       _bufPosSmpF =  _bufPosSmp[_idToPlay];
     } else {
       _bufEmpty[_idToFill]    = false;
       _bufPosSmp[_idToFill]   = 0;
+      _samplesInBuf = _bufSizeSmp - (_offset/_smpSize * _bufCoef);
     }
   }
   //t2 = micros();
@@ -355,7 +492,8 @@ inline void Voice::toggleBuf(){
       _idToFill  = 1;
   }
 //  DEBF("&playBuf=%#010x &fillBuf=%#010x\r\n", _buffer0, _fillBuf16);
-  _bufPosSmpF -= (float)_bufSizeSmp;
+
+  _bufPosSmpF -= (float)_samplesInBuf;
   _bufPlayed++;
 } 
 

@@ -184,7 +184,7 @@ DEBUG("SAMPLER: INIT");
 
   Sampler.init(&Card);
   
-  Sampler.setCurrentFolder(1);
+  Sampler.setCurrentFolder(0);
 
 DEBUG("I2S: INIT");
   i2sInit();
