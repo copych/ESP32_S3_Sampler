@@ -29,10 +29,11 @@ What's not working:
 * On polyphony overrun there are some audible clicks, it should retrig voices in a more delicate way.
 * Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
 * Velocity routines are mostly NOT implemented.
-* Envelope params are hard-coded
-* SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets. (WORK IN PROGRESS)
+* <s>Envelope params are hard-coded</s> (PARTLY MOVED TO INI)
+* SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets. (WORK IN PROGRESS, syntax changed, drum kits supported now)
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * It lacks schematics, but, please, check the .h files for the connectivity info.
+* 24 and 32 bit samples support (24 BIT STEREO IS SUPPORTED NOW, BUT ONLY MSB 16 BITS MATTER YET)
 * Demo video shall be done
 
 # SAMPLER.INI examples
