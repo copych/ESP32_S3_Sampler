@@ -1,12 +1,13 @@
 #pragma once
 
-#define MAX_VELOCITY_LAYERS 16
-#define MAX_POLYPHONY 18 // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
-#define ROOT_FOLDER "/" // only </> is supported yet
-#define WAV_CHANNELS 2
-#define MAX_CONFIG_LINE_LEN 256 // 4 < x < 256 , must be divisible by 4
-#define STR_LEN MAX_CONFIG_LINE_LEN
-#define MAX_DISTANCE_STRETCH 3 // max distance in semitones to search for an absent sample by stretching neighbour files
+#define MAX_VELOCITY_LAYERS   16
+#define MAX_SAME_NOTES        3
+#define MAX_POLYPHONY         17          // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
+#define ROOT_FOLDER           "/"         // only </> is supported yet
+#define WAV_CHANNELS          2
+#define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4
+#define MAX_DISTANCE_STRETCH  2           // max distance in semitones to search for an absent sample by stretching neighbour files
+#define STR_LEN               MAX_CONFIG_LINE_LEN
 
 #include <vector>
 #include <FixedString.h>
@@ -76,6 +77,7 @@ class SamplerEngine {
     SamplerEngine() {}; 
     void            init(SDMMC_FAT32* Card);
     void            initKeyboard();
+    void            fadeOut(int id);
     void            getSample(float& sampleL, float& sampleR);
     fname_t         getFolderName(int id)                 { return _folders[id]; }
     fname_t         getCurrentFolder()                    { return _currentFolder; }

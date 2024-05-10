@@ -2,13 +2,18 @@
 
 bool Voice::allocateBuffers() {
   // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
-  _buffer0 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
-  _buffer1 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES , MALLOC_CAP_INTERNAL);
+  _buffer0 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES + BUF_EXTRA_BYTES , MALLOC_CAP_INTERNAL);
+  _buffer1 = (int16_t*)heap_caps_malloc( BUF_SIZE_BYTES + BUF_EXTRA_BYTES , MALLOC_CAP_INTERNAL);
+  _fadeL = (float*)heap_caps_malloc( FADE_OUT_SAMPLES * sizeof(float) , MALLOC_CAP_INTERNAL);
+  _fadeR = (float*)heap_caps_malloc( FADE_OUT_SAMPLES * sizeof(float) , MALLOC_CAP_INTERNAL);
   if( _buffer0 == NULL || _buffer1 == NULL){
     DEBUG("No more RAM for sampler buffer!");
     return false;
   } else {
-    DEBF("%d Bytes RAM allocated for sampler buffer, &_buffer0=%#010x\r\n", BUF_NUMBER * BUF_SIZE_BYTES, _buffer0);
+    for (int i=0; i< FADE_OUT_SAMPLES; i++) {
+      _fadeL[i] = _fadeR[i] = 0.0f;
+    } 
+    DEBF("%d Bytes RAM allocated for sampler buffers, &_buffer0=%#010x\r\n", BUF_NUMBER * ( BUF_SIZE_BYTES + BUF_EXTRA_BYTES ) + 2 * FADE_OUT_SAMPLES * sizeof(float), _buffer0);
   }
   return true;
 }
@@ -32,12 +37,9 @@ void Voice::init(SDMMC_FAT32* Card, bool* sustain){
 
 void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo){
   //taskENTER_CRITICAL(&noteonMux);
-  if (!_active || _queued) {
-    _queued                 = false;
     _sampleFile             = smpFile;
+    _bytesToRead            = smpFile.size;
     // _amplitude              = 0.0f;
-    _lackingL               = 0.0f;
-    _lackingR               = 0.0f;
     _smpSize                = smpFile.channels * smpFile.bit_depth / 8;
     _speed                  = smpFile.speed;
     _bufSizeSmp             = BUF_SIZE_BYTES / _smpSize;
@@ -88,7 +90,7 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo){
     _lastSectorRead         = smpFile.sectors[_curChain].first - 1; 
     _midiNote = midiNote;
     _midiVelo = midiVelo; 
-    _amp = (float)_midiVelo * 0.00003f * MIDI_NORM;
+    _amp = (float)_midiVelo * MIDI_NORM * 0.000033f;
     /*
     if (midiVelo > 0) {
       _divVelo = one_div((float)midiVelo);
@@ -99,30 +101,57 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo){
     */ 
     _feedScoreCoef = (float)_smpSize * (float)_divFileSize;
     _hungerCoef = (float)_smpSize * (float)_speed;
-  // DEBF("VOICE: start note %d velo %d\r\n", midiNote, midiVelo);
+    // DEBF("VOICE: start note %d velo %d\r\n", midiNote, midiVelo);
     AmpEnv.retrigger(Adsr::END_NOW);
     _active = true;
     _pressed = true;
-  } else {
-    _queued = true;
-    _nextFile = smpFile;
-    _nextNote = midiNote;
-    _nextVelo = midiVelo;
-    AmpEnv.end(Adsr::END_FAST);
-  }
+  
   //taskEXIT_CRITICAL(&noteonMux);
 }
 
 
-void Voice::end(bool hard){
-  if (hard) {
-  //  DEBF("VOICE: hard off note %d\r\n", _midiNote);
-    _active = false;
-    // _amplitude = 0.0;
-    AmpEnv.end(Adsr::END_NOW);
-  } else  if (!_pressed && !(*_sustain)) {
-  //  DEBF("VOICE: soft off note %d\r\n", _midiNote); 
-    AmpEnv.end(Adsr::END_REGULAR);
+void Voice::end(Adsr::eEnd_t end_type){
+  switch ((int)end_type) {
+    case Adsr::END_NOW:{
+      _active = false;
+      // _amplitude = 0.0;
+      AmpEnv.end(Adsr::END_NOW);
+      break;
+    }
+    case Adsr::END_FAST:{
+      AmpEnv.end(Adsr::END_FAST);
+      fadeOut();
+      _active = false;
+      _fadePoint = 0;
+      break;
+    }
+    case Adsr::END_REGULAR:
+    default:{
+      if (!_pressed && !(*_sustain)) {
+        //  DEBF("VOICE: soft off note %d\r\n", _midiNote); 
+        AmpEnv.end(Adsr::END_REGULAR);
+      }
+    }
+  }
+}
+
+
+void Voice::fadeOut() {
+  for (int i = 0; i < FADE_OUT_SAMPLES; i++) {
+    getSample((float&)_fadeL[i], (float&)_fadeR[i]); 
+  }
+}
+
+
+void Voice::getFadeSample(volatile float& sL, volatile float& sR){
+  if (_fadePoint < FADE_OUT_SAMPLES) { 
+    sL = _fadeL[_fadePoint];
+    sR = _fadeR[_fadePoint];
+    _fadePoint++;
+    //DEBF("%d: %7.7f \t %7.7f \r\n", _fadePoint, sL, sR);
+  } else {
+    sL = 0.0f;
+    sR = 0.0f;
   }
 }
 
@@ -137,49 +166,48 @@ void Voice::getSample16m(float& sampleL, float& sampleR) {
   if (_active) {
     env =  (float)AmpEnv.process() * (float)_amp ;
     //env = _amp;
-    if (AmpEnv.isIdle()) {      
-        if (_queued) {
-          start(_nextFile, _nextNote, _nextVelo);
-        } else {
-          _active = false;
-        }
+    if (AmpEnv.isIdle()) {
+      _active = false;
       // _amplitude = 0.0f;
       //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
       return;
     } else {   
       pos = _bufPosSmp[_idToPlay ] + _offset; 
-      switch (pos) {
-        case 0:                           // we will use  -1 index for interpolation
-          l1 = _lackingL;
-          l2 = _playBuf16[ 0 ];
-          break;
-        default:
-          l1 = _playBuf16[ pos - 1 ];
-          l2 = _playBuf16[ pos ];
-      }
+
+      l1 = _playBuf16[ pos ];
+      l2 = _playBuf16[ pos + 1 ];
+      
       sampleL = sampleR = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
  
       bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
       
       /*
       if ( bytes_played % 16 == 0 ) {
-        _amplitude = 0.96f * (float)_amplitude + (float)sampleL + (float)sampleR;
-      } 
+        _amplitude = 0.96f * (float)_amplitude + (float)fabs(sampleL) + (float)fabs(sampleR);
+      }
       */
+      
       if ( bytes_played >= _sampleFile.size ) {
-        end(true);
+        end(Adsr::END_NOW);
        // DEBF("VOICE: bytes played >= size\r\n");
       }
       //   DEBF("Played %d bytes\r\n", bytes_played);
       _bufPosSmpF += (float)_speed ;//* _speedModifier;
       _bufPosSmp[_idToPlay ] = _bufPosSmpF;
       if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
-     //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
-        toggleBuf();        
+      //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
+        toggleBuf();
       }
     }
   }
+  if (_fadePoint < FADE_OUT_SAMPLES) { 
+    sampleL += _fadeL[_fadePoint];
+    sampleR += _fadeR[_fadePoint];
+    _fadePoint++;
+    //DEBF("%d: %7.7f \t %7.7f \r\n", _fadePoint, sL, sR);
+  }
 }
+
 
 void Voice::getSample16s(float& sampleL, float& sampleR) {
   static int pos;
@@ -190,36 +218,25 @@ void Voice::getSample16s(float& sampleL, float& sampleR) {
   if (_bufEmpty[0] && _bufEmpty[1]) return;
   if (_active) {
     env =  (float)AmpEnv.process() * (float)_amp ;
+    //if (AmpEnv.getCurrentSegment() == Adsr::ADSR_SEG_RELEASE) DEBUG (env);
     //env = _amp;
-    if (AmpEnv.isIdle()) {      
-        if (_queued) {
-          start(_nextFile, _nextNote, _nextVelo);
-        } else {
-          _active = false;
-        }
+    if (AmpEnv.isIdle()) {
+      _active = false;
       // _amplitude = 0.0f;
       //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
       return;
     } else {
       pos = 2 * _bufPosSmp[_idToPlay ] + _offset; 
       // DEBF("pos = %d\r\n", pos);
-      switch (_bufPosSmp[_idToPlay ]) {
-        case 0:                           // we will use  -1 index for interpolation
-          l1 = _lackingL;
-          r1 = _lackingR;
-          l2 = _playBuf16[ 0 ];
-          r2 = _playBuf16[ 1 ];
-          // DEBF("VOICE: POS 0 : offset: %d \r\n", _offset);
-          break;
-        default:
-          l1 = _playBuf16[ pos - 2 ];
-          r1 = _playBuf16[ pos - 1 ];
-          l2 = _playBuf16[ pos ];
-          r2 = _playBuf16[ pos + 1 ];
-      }
+    
+      l1 = _playBuf16[ pos ];
+      r1 = _playBuf16[ pos + 1 ];
+      l2 = _playBuf16[ pos + 2 ];
+      r2 = _playBuf16[ pos + 3 ];
+      
       sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
       sampleR = (float)interpolate( r1, r2, _bufPosSmpF ) * (float)env;
-      
+
       bytes_played = ((uint32_t)_bufPlayed * (uint32_t)_bufSizeSmp + (uint32_t)_bufPosSmp[_idToPlay]) * (uint32_t)_smpSize;
       
       /*
@@ -228,7 +245,7 @@ void Voice::getSample16s(float& sampleL, float& sampleR) {
       } 
       */
       if ( bytes_played >= _sampleFile.size ) {
-        end(true);
+        end(Adsr::END_NOW);
        // DEBF("VOICE: bytes played >= size\r\n");
       }
        //   DEBF("Played %d bytes\r\n", bytes_played);
@@ -240,7 +257,14 @@ void Voice::getSample16s(float& sampleL, float& sampleR) {
       }
     }
   }
+  if (_fadePoint < FADE_OUT_SAMPLES) { 
+    sampleL += _fadeL[_fadePoint];
+    sampleR += _fadeR[_fadePoint];
+    _fadePoint++;
+    //DEBF("%d: %7.7f \t %7.7f \r\n", _fadePoint, sL, sR);
+  }
 }
+
 
 void Voice::getSample24m(float& sampleL, float& sampleR) {
   static int pos;
@@ -252,18 +276,20 @@ void Voice::getSample24m(float& sampleL, float& sampleR) {
   if (_active) {
     env =  (float)AmpEnv.process() * (float)_amp ;
     //env = _amp;
-    if (AmpEnv.isIdle()) {      
-        if (_queued) {
-          start(_nextFile, _nextNote, _nextVelo);
-        } else {
-          _active = false;
-        }
+    if (AmpEnv.isIdle()) {
+      _active = false;
       // _amplitude = 0.0f;
       //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
       return;
     } else {
       // 24 bit mono
-      //todo
+      pos = (uint32_t)_offset + (uint32_t)_smpSize * (uint32_t)_bufPosSmp[_idToPlay ];  // pos in a byte buffer
+      // DEBF("pos = %d\r\n", pos);
+
+      l1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1]) | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
+      l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4]) | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
+
+      sampleL = sampleR = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
 
       bytes_played = (uint32_t)_bufPlayed * BUF_SIZE_BYTES + (uint32_t)pos + (uint32_t)_smpSize;
       
@@ -273,7 +299,7 @@ void Voice::getSample24m(float& sampleL, float& sampleR) {
       } 
       */
       if ( bytes_played >= _sampleFile.size ) {
-        end(true);
+        end(Adsr::END_NOW);
        // DEBF("VOICE: bytes played >= size\r\n");
       }
    //   DEBF("Played %d bytes\r\n", bytes_played);
@@ -285,7 +311,14 @@ void Voice::getSample24m(float& sampleL, float& sampleR) {
       }
     }
   }
+  if (_fadePoint < FADE_OUT_SAMPLES) { 
+    sampleL += _fadeL[_fadePoint];
+    sampleR += _fadeR[_fadePoint];
+    _fadePoint++;
+    //DEBF("%d: %7.7f \t %7.7f \r\n", _fadePoint, sL, sR);
+  }
 }
+
 
 void Voice::getSample24s(float& sampleL, float& sampleR) {
   static int pos;
@@ -297,48 +330,20 @@ void Voice::getSample24s(float& sampleL, float& sampleR) {
   if (_active) {
     env =  (float)AmpEnv.process() * (float)_amp ;
     //env = _amp;
-    if (AmpEnv.isIdle()) {      
-        if (_queued) {
-          start(_nextFile, _nextNote, _nextVelo);
-        } else {
-          _active = false;
-        }
+    if (AmpEnv.isIdle()) {
+      _active = false;
       // _amplitude = 0.0f;
       //  DEBF("Voice::getSample: note %d active=false\r\n", _midiNote);
       return;
     } else {
       pos = (uint32_t)_offset + (uint32_t)_smpSize * (uint32_t)_bufPosSmp[_idToPlay ];  // pos in a byte buffer
       // DEBF("pos = %d\r\n", pos);
-      switch (_bufPosSmp[_idToPlay ]) {
-        case 0:
-          switch (_offset) {
-            case 2:
-              l1 = _lackingL;
-              r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[0])     | static_cast<uint16_t>(_playBuf8[1])<<8 );
-              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[3])     | static_cast<uint16_t>(_playBuf8[4])<<8 );
-              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[6])     | static_cast<uint16_t>(_playBuf8[7])<<8 );
-              break;
-            case 4:
-              l1 = (int16_t)( static_cast<uint16_t>(_lackingL)        | static_cast<uint16_t>(_playBuf8[0])<<8 ); 
-              r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[2])     | static_cast<uint16_t>(_playBuf8[3])<<8 );
-              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[5])     | static_cast<uint16_t>(_playBuf8[6])<<8 );
-              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[8])     | static_cast<uint16_t>(_playBuf8[9])<<8 );
-              break;
-            case 0:
-            default:
-              l1 = _lackingL;
-              r1 = _lackingR;
-              l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1])     | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
-              r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4])     | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
-          }
-          // DEBF("VOICE: POS 0 : offset: %d l1: %f l2: %f r1: %f r2: %f \r\n", _offset, l1,l2,r1,r2);
-          break;
-        default:
-          l1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-5]) | static_cast<uint16_t>(_playBuf8[pos-4])<<8 );
-          r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos-2]) | static_cast<uint16_t>(_playBuf8[pos-1])<<8 );
-          l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1]) | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
-          r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4]) | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
-      }
+
+      l1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+1]) | static_cast<uint16_t>(_playBuf8[pos+2])<<8 );
+      r1 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+4]) | static_cast<uint16_t>(_playBuf8[pos+5])<<8 );
+      l2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+7]) | static_cast<uint16_t>(_playBuf8[pos+8])<<8 );
+      r2 = (int16_t)( static_cast<uint16_t>(_playBuf8[pos+10]) | static_cast<uint16_t>(_playBuf8[pos+11])<<8 );
+
       // if (fabs(r1-r2)>10000.0f) DEBF("pos: %d smpPos: %d fPos: %f _offset: %d \r\n", pos, _bufPosSmp[_idToPlay ], _bufPosSmpF, _offset);
       
       sampleL = (float)interpolate( l1, l2, _bufPosSmpF ) * (float)env;
@@ -352,26 +357,33 @@ void Voice::getSample24s(float& sampleL, float& sampleR) {
       } 
       */
       if ( bytes_played >= _sampleFile.size ) {
-        end(true);
+        end(Adsr::END_NOW);
        // DEBF("VOICE: bytes played >= size\r\n");
       }
-   //   DEBF("Played %d bytes\r\n", bytes_played);
+      //   DEBF("Played %d bytes\r\n", bytes_played);
       _bufPosSmpF += (float)_speed ;//* _speedModifier;
       _bufPosSmp[_idToPlay ] = _bufPosSmpF;
       if (_bufPosSmp[_idToPlay ]  >= _samplesInBuf ) {
-     //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
+      //   DEBF("VOICE: TOGGLE: pos: %d, inBuf: %d, _offset: %d, bytes_played: %d \r\n", _bufPosSmp[_idToPlay ], _samplesInBuf, _offset, bytes_played );
         toggleBuf();        
       }
     }
   }
+  if (_fadePoint < FADE_OUT_SAMPLES) { 
+    sampleL += _fadeL[_fadePoint];
+    sampleR += _fadeR[_fadePoint];
+    _fadePoint++;
+    //DEBF("%d: %7.7f \t %7.7f \r\n", _fadePoint, sL, sR);
+  }
 }
+
 
 void  Voice::feed() {
   //volatile size_t t1,t2;
   //t1 = micros();
   if (_bufEmpty[_idToFill] && !_eof) {
     int sectorsToRead = READ_BUF_SECTORS;
-    int sectorsAvailable ; 
+    int sectorsAvailable;
     volatile int16_t* bufAddr =  _fillBuf16;
    // DEBF("fill buf addr %d\r\n", bufAddr);
     while (sectorsToRead > 0) {
@@ -381,6 +393,7 @@ void  Voice::feed() {
         _Card->read_block((int16_t*)bufAddr, _lastSectorRead+1, sectorsAvailable);
         _lastSectorRead += sectorsAvailable;
         sectorsToRead -= sectorsAvailable;
+        _bytesToRead -= sectorsAvailable * BYTES_PER_SECTOR;
         bufAddr += sectorsAvailable * INTS_PER_SECTOR;
       } else { // we've done with the current chain
         if (_curChain + 1 < _sampleFile.sectors.size()) { // we still got some sectors to read
@@ -391,6 +404,8 @@ void  Voice::feed() {
           break;
         }
       }
+      // copy first bytes to extra zone
+      memcpy((void*)(_playBuf8 + BUF_SIZE_BYTES), (const void*)(_fillBuf8 ), BUF_EXTRA_BYTES);
     }
     if (_bufEmpty[0] && _bufEmpty[1]) { // init state: bufToFill = 0, bufToPlay = 1
       _bufEmpty[_idToFill]    = false;
@@ -427,33 +442,25 @@ inline void Voice::toggleBuf(){
         case 1:             // 24 bit mono
           switch (remain) {
             case 0:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-2]) | static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-1])<<8 );
               _offset=0;
               break;
             case 1:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_fillBuf8[0])                | static_cast<uint16_t>(_fillBuf8[1])<<8 );
               _offset=2;
               break;
             case 2:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-1]) | static_cast<uint16_t>(_fillBuf8[0])<<8 );
               _offset=1;
           }
-          _lackingR = _lackingL;
           break;
         case 2:             // 24 bit stereo
           switch (remain) {
             case 0:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-5]) | static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-4])<<8 );
-              _lackingR = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-2]) | static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-1])<<8 );
               _offset = 0;
               break;
             case 2:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-1])  ); 
               // we'll need 0, 2nd and 3rd bytes from a new buffer
               _offset = 4;
               break;
             case 4:
-              _lackingL = (int16_t)( static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-3]) | static_cast<uint16_t>(_playBuf8[BUF_SIZE_BYTES-2])<<8 );
               // we will need  0 and 1st bytes from a new buffer
               _offset = 2;
           }
@@ -462,16 +469,6 @@ inline void Voice::toggleBuf(){
     case 16:
     default:
       _offset = 0;
-      switch (_sampleFile.channels){
-        case 1:             // 16 bit mono
-          _lackingL = _playBuf16[_bufSizeSmp - 1];
-          _lackingR = _lackingL;
-          break;
-        case 2:             // 16 bit stereo
-        default:
-          _lackingL = _playBuf16[2 * _bufSizeSmp - 2];
-          _lackingR = _playBuf16[2 * _bufSizeSmp - 1];  
-      }
   }
   switch(_idToPlay ) { 
     case 0:
@@ -491,12 +488,11 @@ inline void Voice::toggleBuf(){
       _idToPlay  = 0;
       _idToFill  = 1;
   }
-//  DEBF("&playBuf=%#010x &fillBuf=%#010x\r\n", _buffer0, _fillBuf16);
+  //  DEBF("&playBuf=%#010x &fillBuf=%#010x\r\n", _buffer0, _fillBuf16);
 
   _bufPosSmpF -= (float)_samplesInBuf;
   _bufPlayed++;
-} 
-
+}
 
 uint32_t Voice::hunger() {
     if (!_active || _eof || !(_bufEmpty[0] || _bufEmpty[1])) return 0;
@@ -515,5 +511,5 @@ inline float Voice::interpolate(float& v1, float& v2, float index) {
 
 
 inline float Voice::getFeedScore() {
-  if (_queued) return 0.0f; else return (float)_bufPlayed * (float)_feedScoreCoef;
+  return (float)_bufPlayed * (float)_feedScoreCoef;
 }

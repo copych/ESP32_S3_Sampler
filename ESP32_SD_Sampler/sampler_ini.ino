@@ -112,7 +112,7 @@ void SamplerEngine::parseIni() {
   if (section==S_NOTE || section==S_RANGE) loadRange(range);
   Reader.close();
   DEBUG("INI PARSING COMPLETE");
-  delay(1000);
+  //delay(1000);
 }
 
 eSection_t SamplerEngine::parseSection(str256_t& val) {

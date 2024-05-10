@@ -1,9 +1,9 @@
 #pragma once
-
+#define   BUF_EXTRA_BYTES   16       // for buffer overlapping
 #define   BUF_NUMBER        2       // tic-tac don't change, for readability only
 #define   CHANNELS          2       // 1 = mono, 2 = stereo
 #define   BYTES_PER_CHANNEL 2
-#define   FADE_BUF_SIZE     16      // to avoid clicks we'll make a fast fade-out (along with starting a new sample if needed)
+#define   FADE_OUT_SAMPLES  8      // fade-out pre-render samples on polyphony overrun
 const int   BUF_SIZE_BYTES  =   (READ_BUF_SECTORS * BYTES_PER_SECTOR);
 const int   BUF_SIZE_INTS   =   (BUF_SIZE_BYTES / 2);
 const int   INTS_PER_SECTOR =   (BYTES_PER_SECTOR / 2);
@@ -61,8 +61,10 @@ class Voice {
     void  getSample24s(float& L, float& R);
     void  getSample32m(float& L, float& R);
     void  getSample32s(float& L, float& R);
+    void  getFadeSample(volatile float& L, volatile float& R);
     void  start(const sample_t nextSmp, uint8_t nextNote, uint8_t nextVelo);
-    void  end(bool hard);
+    void  end(Adsr::eEnd_t);
+    void  fadeOut();
     void  feed();
     inline uint32_t   hunger();
     inline void       setPressed(bool pr)   {_pressed = pr;}
@@ -86,13 +88,17 @@ class Voice {
     volatile bool       _active                 = false;
     volatile int16_t*   _buffer0;               // pointer to the 1st allocated SD-reader buffer
     volatile int16_t*   _buffer1;               // pointer to the 2nd allocated SD-reader buffer
-    volatile int16_t*   _playBuf16;               // pointer to the buffer which is ready to play (one of the two allocated)
-    volatile int16_t*   _fillBuf16;               // pointer to the buffer which awaits filling (one of the two allocated)
-    volatile uint8_t*   _playBuf8;               // pointer to the buffer which is ready to play (one of the two allocated)
-    volatile uint8_t*   _fillBuf8;               // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile int16_t*   _playBuf16;             // pointer to the buffer which is ready to play (one of the two allocated)
+    volatile int16_t*   _fillBuf16;             // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile uint8_t*   _playBuf8;              // pointer to the buffer which is ready to play (one of the two allocated)
+    volatile uint8_t*   _fillBuf8;              // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile float*     _fadeL;                 // fade out left samples to avoid click on instant retrigging voice
+    volatile float*     _fadeR;                 // fade out right samples 
     uint32_t            _bufSizeBytes           = READ_BUF_SECTORS * BYTES_PER_SECTOR;
     uint32_t            _bufSizeSmp             = 0;     
     uint32_t            _hunger                 = 0;
+    volatile int        _fadePoint              = FADE_OUT_SAMPLES;
+    int                 _bytesToRead            = 0; // can be negative
     volatile int        _offset                 = 0; // buf offset (bytes or int16_t's depending on sample bit depth)
     volatile int        _bufCoef                = 2; // 2 for 16 bits, 1 for 24 bits
     volatile int        _samplesInBuf           = 0;
@@ -111,18 +117,12 @@ class Voice {
     uint32_t            _lastSectorRead         = 0;      // last sector that was read during this sample playback
     uint32_t            _curChain               = 0;      // current chain (linear non-fragmented segment of a sample file) index
     uint32_t            _bufPlayed              = 0;      // number of buffers played (for float correction)
-    float               _lackingL               = 0.0;    // -1st element for interpolation of the 0-element
-    float               _lackingR               = 0.0;    // -1st element for interpolation of the 0-element
     volatile float      _amplitude              = 0.0;
     volatile bool       _pressed                = false;
     volatile bool       _eof                    = true;
     float               _feedScoreCoef          = 1.0f;
     float               _hungerCoef             = 1.0f;
     sample_t            _sampleFile             ;
-    sample_t            _nextFile               ;
-    uint8_t             _nextNote               = 0;
-    uint8_t             _nextVelo               = 0;
-    volatile bool       _queued                 = false;
     int                 _lowest                 = 1;
     Adsr                AmpEnv                  ;
 };

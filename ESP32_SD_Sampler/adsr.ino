@@ -17,7 +17,9 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    setTime(ADSR_SEG_FAST_RELEASE, 0.0002f);
+    //setTime(ADSR_SEG_FAST_RELEASE, 0.0001814f); // 8 samples @44100Hz
+    fastReleaseD0_ = 0.29f;
+    fastReleaseTime_ =  0.0001814f;
 }
 
 void Adsr::retrigger(eEnd_t hardness) {
@@ -39,19 +41,22 @@ void Adsr::end(eEnd_t hardness) {
   gate_ = false;
   target_ = -0.001f;
   switch (hardness) {
-    case END_NOW:
+    case END_NOW:{
       mode_ = ADSR_SEG_IDLE;
       D0_ = attackD0_;
       x_ = 0.f;
       break;
-    case END_FAST:
+    }
+    case END_FAST:{
       mode_ = ADSR_SEG_FAST_RELEASE;
       D0_ = fastReleaseD0_;
       break;
+    }
     case END_REGULAR:
-    default:
+    default:{
       mode_ = ADSR_SEG_RELEASE;
       D0_ = releaseD0_;
+    }
   }
 }
 
@@ -65,7 +70,11 @@ inline Adsr::eSegment_t Adsr::getCurrentSegment() {
 
 void Adsr::setTime(int seg, float time) {
   switch (seg) {
-    case ADSR_SEG_ATTACK: setAttackTime(time, 0.0f); break;
+    case ADSR_SEG_ATTACK:
+      {
+        setAttackTime(time, 0.0f);  
+        break;
+      }
     case ADSR_SEG_DECAY:
       {
         setTimeConstant(time, decayTime_, decayD0_);
@@ -144,6 +153,15 @@ float Adsr::process() {
       break;
     case ADSR_SEG_DECAY:
     case ADSR_SEG_RELEASE:
+      x_ += (float)D0_ * ((float)target_ - (float)x_);
+      out = x_;
+      if (out < 0.0f) {
+        mode_ = ADSR_SEG_IDLE;
+        x_ = out = 0.f;
+        target_ = -0.001f;
+        D0_ = attackD0_;
+      }
+      break;
     case ADSR_SEG_FAST_RELEASE:
       x_ += (float)D0_ * ((float)target_ - (float)x_);
       out = x_;
@@ -154,7 +172,8 @@ float Adsr::process() {
         D0_ = attackD0_;
       }
       break;
-    default: break;
+    default: 
+      break;
   }
   return out;
 }

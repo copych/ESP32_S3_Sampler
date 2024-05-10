@@ -100,5 +100,12 @@ typedef struct {
   std::vector<chain_t> sectors;
 } entry_t;
 
-typedef std::vector<entry_t> dirList_t;
+typedef struct {
+  entry_t entry;
+  uint32_t curSector  ;
+  uint32_t curCluster ;
+  uint32_t startSector;
+  int      direntNum ; 
+} point_t;
 
+typedef std::vector<entry_t> dirList_t;

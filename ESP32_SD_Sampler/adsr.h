@@ -85,9 +85,9 @@ enum eEnd_t { END_REGULAR, END_FAST, END_NOW };
 
   private:
     float   sus_level_{0.f};
-    float   x_{0.f};
-    float   target_{0.f};
-    float 	D0_{0.f};
+    volatile float   x_{0.f};
+    volatile float   target_{0.f};
+    volatile float 	D0_{0.f};
     float   attackShape_{-1.f};
     float   attackTarget_{0.0f};
     float   attackTime_{-1.0f};
@@ -99,6 +99,6 @@ enum eEnd_t { END_REGULAR, END_FAST, END_NOW };
     float   releaseD0_{0.f};
     float   fastReleaseD0_{0.f};
     int     sample_rate_;
-    eSegment_t mode_{ADSR_SEG_IDLE};
+    volatile eSegment_t mode_{ADSR_SEG_IDLE};
     bool    gate_{false};
 };

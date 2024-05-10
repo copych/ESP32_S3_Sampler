@@ -27,7 +27,8 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
   }
 }
 
-int SamplerEngine::scanRootFolder() {
+int SamplerEngine::scanRootFolder() {  
+  SDMMC_FileReader Reader(_Card);
   _rootFolder = ROOT_FOLDER;
   _folders.clear();
   _Card->setCurrentDir(_rootFolder);
@@ -37,8 +38,14 @@ int SamplerEngine::scanRootFolder() {
     entry_t* entry = _Card->nextEntry();
     if (entry->is_end) break;
     if (entry->is_dir) {
-      _folders.push_back(entry->name);
-      index++;
+ //     point_t p = _Card->getCurrentPoint();
+   //   _Card->setCurrentDir(entry->name);
+      fname_t dir = entry->name;
+   //   if (Reader.open(INI_FILE) == ESP_OK ) {
+        _folders.push_back(dir);
+        index++;
+   //   }
+   //   _Card->setCurrentPoint(p);
     }
   }
   _sampleSetsCount = index;
@@ -48,24 +55,37 @@ int SamplerEngine::scanRootFolder() {
 inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
   float maxAge = 0.0;
   float minAmp = 1.0e30;
+  int   candidates[_maxVoices];
   int id = 0;
-  /*
-  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+
+  int same_notes = 0;
+  for (int i = 0 ; i < _maxVoices ; i++) {
     if (Voices[i].getMidiNote() == midi_note){
-      Voices[i].end(false);
-      DEBUG("SAMPLER: Retrig same note");
-      return (int)i;
+      candidates[same_notes] = i;
+      same_notes++;
+      if (same_notes>=MAX_SAME_NOTES) {
+        for(int j=0 ; j<=same_notes; j++) {
+          if (Voices[j].getFeedScore() > maxAge){
+            maxAge = Voices[j].getFeedScore();
+            id = j;
+          }
+        }
+        DEBUG("SAMPLER: Retrig same note");
+        Voices[id].end(Adsr::END_FAST);
+        return id;
+      }
     }
   }
-  */
-  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+  
+  for (int i = 0 ; i < _maxVoices ; i++) {
     if (!Voices[i].isActive()){
    //   DEBUG("SAMPLER: First vacant voice");
       return (int)i;
     }
   }  
+
   /*
-  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+  for (int i = 0 ; i < _maxVoices ; i++) {
     if (Voices[i].getAmplitude() < minAmp){
       minAmp = Voices[i].getAmplitude();
       id = i;
@@ -73,16 +93,17 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
     }
   }
   DEBUG("Retrig most quiet");
+  Voices[id].end(Adsr::END_FAST);
   return id;
   */
-  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+  for (int i = 0 ; i < _maxVoices ; i++) {
     if (Voices[i].getFeedScore() > maxAge){
       maxAge = Voices[i].getFeedScore();
       id = i;
-     // Voices[i].end(false);
     }
   }
   DEBUG("SAMPLER: Retrig oldest");
+  Voices[id].end(Adsr::END_FAST);
   return id;
 }
 
@@ -99,12 +120,14 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
 }
 
 inline void SamplerEngine::noteOff(uint8_t midiNote, bool hard ){
+  Adsr::eEnd_t end_type ;
+  if (hard) end_type = Adsr::END_NOW; else end_type = Adsr::END_REGULAR;
   if (_keyboard[midiNote].noteoff || hard) {
     for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
       if (Voices[i].getMidiNote() == midiNote) {      
         // DEBF("SAMPLER: NOTE OFF Voice %d note %d \r\n", i, midiNote);
         Voices[i].setPressed(false);
-        Voices[i].end(hard);
+        Voices[i].end(end_type);
         // return;
       }
     }
@@ -118,7 +141,7 @@ inline void SamplerEngine::setSustain(bool onoff) {
   if (!onoff) {
     for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
       if (_keyboard[Voices[i].getMidiNote()].noteoff) {
-        Voices[i].end(false);   
+        Voices[i].end(Adsr::END_REGULAR);   
       }
     }
   }
@@ -151,7 +174,7 @@ void IRAM_ATTR SamplerEngine::fillBuffer() {
   static int iToFeed;
   hunger = hungerMax = 0;
   iToFeed = 0;
-  for (int i=0; i<MAX_POLYPHONY; i++) {
+  for (int i=0; i<_maxVoices; i++) {
     hunger = Voices[i].hunger();
     if (hunger > hungerMax) {
       hungerMax = hunger;
@@ -167,22 +190,22 @@ inline void SamplerEngine::setCurrentFolder(int folder_id) {
   folder_id = constrain(folder_id, 0, _sampleSetsCount-1); // just in case
   _currentFolder = _folders[folder_id];
   _currentFolderId = folder_id;
-  _Card->setCurrentDir("");
+  _Card->setCurrentDir(_rootFolder);
   DEB(folder_id);
   DEB(": ");
   DEBUG(_folders[folder_id].c_str());
   _Card->setCurrentDir(_folders[folder_id]);
-  initKeyboard();
-  parseIni();
+  initKeyboard();               // it resets _keyboard[] which holds key-specific parameters
+  parseIni();                   // this will read the sampler.ini file and prepare name template along with other parameters
   _Card->rewindDir();
-  while (true) {
+  while (true) {                // iterate thru the selected directory
     entry_t* entry = _Card->nextEntry();
     if (entry->is_end) break;
     if (!entry->is_dir) {
-      processNameParser(entry);      
+      processNameParser(entry); // parse filenames basing on a prepared template
     }
   }
-  finalizeMapping();
+  finalizeMapping();  // fill the gaps when we don't have dedicated samples for some pitches or velocity layers
   printMapping();
 }
 
@@ -214,6 +237,9 @@ void SamplerEngine::initKeyboard() {
 }
 
 void SamplerEngine::resetSamples() {
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    Voices[i].end(Adsr::END_FAST);    
+  }
   for (int i = 0; i<MAX_VELOCITY_LAYERS; i++) {
     for (int j = 0; j<128; j++) {
       _sampleMap[j][i].sectors.clear();
@@ -247,9 +273,9 @@ void SamplerEngine::getSample(float& sampleL, float& sampleR){
   float sR = 0.0;
   sampleL = 0.0;
   sampleR = 0.0;
-  for (int i = 0; i < MAX_POLYPHONY; i++) {
+  for (int i = 0; i < _maxVoices; i++) {
     Voices[i].getSample(sL, sR);
     sampleL += sL;
-    sampleR += sR;
+    sampleR += sR;    
   }
 }

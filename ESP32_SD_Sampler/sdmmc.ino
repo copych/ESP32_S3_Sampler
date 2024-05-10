@@ -348,6 +348,25 @@ void SDMMC_FAT32::setCurrentDir(fpath_t dir_path){
   DEBF("SDMMC: Current ROOT set to <%s>\r\n", _currentDir.c_str() );
 }
 
+void SDMMC_FAT32::setCurrentPoint(point_t& p) {
+  _currentEntry   = p.entry;
+  _startSector    = p.startSector;
+  _currentSector  = p.curSector;
+  _currentCluster = p.curCluster;
+  _dirent_num     = p.direntNum;
+}
+
+point_t SDMMC_FAT32::getCurrentPoint() {
+  point_t p;
+  entry_t ent;
+  p.entry       = _currentEntry;
+  p.startSector = _startSector;
+  p.curSector   = _currentSector;
+  p.curCluster  = _currentCluster;
+  p.direntNum   = _dirent_num;
+  return p;
+}
+
 void SDMMC_FAT32::rewindDir() {
   _currentCluster       = _startCluster;
   _startSector          = firstSectorOfCluster(_startCluster);

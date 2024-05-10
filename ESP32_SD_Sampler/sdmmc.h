@@ -165,6 +165,9 @@ class SDMMC_FAT32 {
     uint8_t*  readSector(uint32_t sector); // reads one sector into uint8_t sector_buf[] returns pointer to it
     uint8_t*  readNextSector(uint32_t curSector);
     uint32_t  getNextSector(uint32_t curSector = 0);
+    
+    point_t   getCurrentPoint()     ;
+    void      setCurrentPoint(point_t& p);
 
     uint8_t   getPartitionId()      {return _partitionId;}
     uint32_t  getFirstSector()      {return _firstSector;}
