@@ -41,7 +41,7 @@ What's not working:
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * It lacks schematics, but, please, check the .h files for the connectivity info.
 * 24 and 32 bit samples support (24 BIT STEREO IS SUPPORTED NOW, BUT ONLY MSB 16 BITS MATTER YET)
-* Demo video shall be done
+* <s>Demo video shall be done</s>
 
 # SAMPLER.INI examples
 One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
