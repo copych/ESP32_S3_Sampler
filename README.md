@@ -3,6 +3,12 @@ ESP32-S3 SD Sampler is a polyphonic music synthesizer, which can play PCM WAV sa
 Simple: one directory = one instrument. Plain text "sampler.ini" manages how samples to be spread over the clavier.
 The main difference, comparing to the projects available on the net, is that this sampler WON'T try to preload all the stuff into the RAM/PSRAM to play it on demand. So it's not limited in this way by the size of the memory chip and can take really huge (per-note true sampled multi-velocity several gigabytes) sample sets. It only requires that the card is freshly formatted FAT32 and has no or very few bad blocks (actually it requires that the WAV files is written with little or no fragmentation at all). On start it analyzes existing file allocation table (FAT) and forms it's own sample lookup table to be able to access data immediately, using SDMMC with a 4-bit wide bus.
 
+
+# YouTube Video
+
+[![Video](https://img.youtube.com/vi/6Oe6QPwk1ak/maxresdefault.jpg)](https://youtu.be/6Oe6QPwk1ak?feature=shared)
+
+
 # Is it possible to run on ESP32 not S3?
 For the time being the sampler only supports S3 variant. 
 It's possible to rearrange classes in order to allocate members dynamically, and run it on an ESP32, but ESP32 has a strong limitation: memory segmentation (SRAM0, SRAM1, SRAM2 and segments within these parts like BSS, IRAM, DRAM etc) is hardware defined and has different performance. So it's quite a challenge to fit all the objects and buffers in appropriate memory regions. I have tried and managed to compile, but the performance was much worse so I rolled back. If someone would like to, please fork the repository and try.
