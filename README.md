@@ -37,10 +37,10 @@ What's not working:
 * Velocity routines are not fully implemented.
 * Looping of any kind is not implemented.
 * <s>Envelope params are hard-coded</s> (MOVED TO INI, MIDI CC CONTROLS TO COME)
-* SAMPLER.INI syntax has to be developed much further. Now it only supports basic piano-like melodic WAV-sets. (WORK IN PROGRESS, syntax changed, drum kits supported now)
+* SAMPLER.INI syntax has to be developed much further. (CHANGED A LOT, A LOT MORE TO DO)
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
-* It lacks schematics, but, please, check the .h files for the connectivity info.
-* 24 and 32 bit samples support (24 BIT STEREO IS SUPPORTED NOW, BUT ONLY MSB 16 BITS MATTER YET)
+* It lacks schematics, but, please, check the .h files and /media folder for the connectivity info.
+* 24 and 32 bit samples support (24 BIT STEREO IS SUPPORTED NOW, THREATED AS 16 BIT YET)
 * <s>Demo video shall be done</s>
 
 # SAMPLER.INI examples
