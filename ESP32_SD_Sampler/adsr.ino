@@ -17,9 +17,9 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    //setTime(ADSR_SEG_FAST_RELEASE, 0.0001814f); // 8 samples @44100Hz
-    fastReleaseD0_ = 0.29f;
-    fastReleaseTime_ =  0.0001814f;
+    setTime(ADSR_SEG_FAST_RELEASE, 0.0001814f); // 8 samples @44100Hz trying to avoid clicks
+    //fastReleaseD0_ = 0.02553f;
+    //fastReleaseTime_ =  0.0001814f;
 }
 
 void Adsr::retrigger(eEnd_t hardness) {
@@ -39,7 +39,7 @@ void Adsr::retrigger(eEnd_t hardness) {
 
 void Adsr::end(eEnd_t hardness) {
   gate_ = false;
-  target_ = -0.001f;
+  target_ = -0.1f;
   switch (hardness) {
     case END_NOW:{
       mode_ = ADSR_SEG_IDLE;
@@ -127,7 +127,7 @@ void Adsr::setTimeConstant(float timeInS, float& time, float& coeff) {
   if (timeInS != time) {
     time = timeInS;
     if (time > 0.f) {
-      const float target = -0.43429448190325;  // log(1/e)
+      const float target = -0.4f;  // ~log(1/e)
       coeff = 1.f - expf(target / (time * sample_rate_));
     } else
       coeff = 1.f;  // instant change
@@ -158,7 +158,7 @@ float Adsr::process() {
       if (out < 0.0f) {
         mode_ = ADSR_SEG_IDLE;
         x_ = out = 0.f;
-        target_ = -0.001f;
+        target_ = -0.1f;
         D0_ = attackD0_;
       }
       break;
@@ -168,7 +168,7 @@ float Adsr::process() {
       if (out < 0.0f) {
         mode_ = ADSR_SEG_IDLE;
         x_ = out = 0.f;
-        target_ = -0.001f;
+        target_ = -0.1f;
         D0_ = attackD0_;
       }
       break;

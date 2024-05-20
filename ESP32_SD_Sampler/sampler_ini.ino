@@ -264,7 +264,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
   int oct = -2;
   int velo = 0;
   int note_num = -1;
-  std::vector<int> rng_i;
+  std::vector<int> rng_i; // affected indices
   int match_weight = 0;
   str20_t instr = "";
   str8_t s;
@@ -386,6 +386,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
       smp.orig_velo_layer = velo;
       smp.sectors = entry->sectors;
       smp.size = entry->size;
+      smp.name = (entry->name);
       parseWavHeader(entry, smp);
       _sampleMap[note_num][velo] = smp;
     }
@@ -399,6 +400,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
         smp.orig_velo_layer = velo;
         smp.sectors = entry->sectors;
         smp.size = entry->size;
+        smp.name = (entry->name);
         parseWavHeader(entry, smp);
         _sampleMap[midi_note][velo] = smp;
       }
@@ -408,7 +410,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
 
 
 void SamplerEngine::parseWavHeader(entry_t* wav_entry, sample_t& smp){
-  char* buf = reinterpret_cast<char*>(_Card->readFirstSector(wav_entry));
+  char* buf = reinterpret_cast<char*>(_Card->readFirstSector(wav_entry)); // massive long headers won't pass here (
   wav_header_t* wav = reinterpret_cast<wav_header_t*>(buf);
   smp.sample_rate = wav->sampleRate;
   smp.bit_depth = wav->bitsPerSample;
@@ -422,7 +424,8 @@ void SamplerEngine::parseWavHeader(entry_t* wav_entry, sample_t& smp){
     }
   }
   if (res >= 0 ) {
-    smp.byte_offset = res+8;
+    smp.byte_offset = res + 8;
+    smp.data_size = *(reinterpret_cast<uint32_t*>(&buf[res+4]));
   }
 }
 
@@ -552,7 +555,8 @@ void SamplerEngine::printMapping() {
   for (int i = 0; i < _veloLayers; i++) {
     for (int j = 0 ; j<128; j++ ) {
       if (!_sampleMap[j][i].sectors.empty()) {
-        DEBF("%lu\t", _sampleMap[j][i].bit_depth );
+//        DEBF("%lu\t", _sampleMap[j][i].bit_depth );
+        DEBF("%s\t", _sampleMap[j][i].name.c_str() );
       } else {        
         DEBF( "%d\t", 0 );
       }

@@ -9,7 +9,7 @@ class SDMMC_FileReader {
   public:  
     SDMMC_FileReader(SDMMC_FAT32* Card);
     ~SDMMC_FileReader(){};
-    esp_err_t   open(fname_t fname);
+    esp_err_t   open(fpath_t fname);
     esp_err_t   close();
     void        read_line(str_max_t& retStr); // we assume that line length < FixedString max size (256 bytes)
     bool        available();

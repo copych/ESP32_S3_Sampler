@@ -89,29 +89,29 @@ static inline void IRAM_ATTR sampler_generate_buf();
 static void IRAM_ATTR audio_task(void *userData) { // core 0 task
   DEBUG ("core 0 audio task run");
   vTaskDelay(10);
-  volatile size_t t1,t2,t3,t4;
+ // volatile uint32_t t1,t2,t3,t4;
   out_buf_id = 0;
   gen_buf_id = 1;
   while (true) {
-    t1=micros();
+   // t1=micros();
     sampler_generate_buf();
-    t2=micros();
+  //  t2=micros();
     mixer(); 
-    t3=micros();
+   // t3=micros();
     i2s_output();
-    t4=micros();
-  //  DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+  //  t4=micros();
+   // DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
     out_buf_id = 1;
     gen_buf_id = 0;
  
-    t1=micros();
+  //  t1=micros();
     sampler_generate_buf();
-    t2=micros();
+  //  t2=micros();
     mixer(); 
-    t3=micros();
+ //   t3=micros();
     i2s_output();
-    t4=micros();
-  //  DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+  //  t4=micros();
+   // DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
     out_buf_id = 0;
     gen_buf_id = 1;
   }
@@ -127,29 +127,31 @@ static void  control_task(void *userData) { // core 1 task
       timer2_fired = false;
       timeClick();
     }
-    */      
-    if (passby % 16 == 0) {      
-      processButtons();
-    //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
-    //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
-    }
-    passby++;
-    
+    */
 
-    Sampler.fillBuffer();
+    processButtons();
     
+    Sampler.fillBuffer();
+
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
     #endif
-
     
+    Sampler.fillBuffer();
+
     #ifdef MIDI_VIA_SERIAL2
       MIDI2.read();
     #endif
     
     Sampler.fillBuffer();
-    
+
     taskYIELD();
+
+    Sampler.fillBuffer();
+    
+    //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
+    //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
+    
   }
 }
 

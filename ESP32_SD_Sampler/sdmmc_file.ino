@@ -5,7 +5,7 @@ SDMMC_FileReader::SDMMC_FileReader( SDMMC_FAT32* Card ) {
   _Card = Card;
 }
 
-esp_err_t SDMMC_FileReader::open(fname_t fname) {
+esp_err_t SDMMC_FileReader::open(fpath_t fname) {
   _filePos = 0;
   _bufCount = 0;
   _bufPos = 0;

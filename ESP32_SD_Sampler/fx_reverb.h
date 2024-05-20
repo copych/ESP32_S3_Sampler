@@ -15,7 +15,7 @@
  */ 
 
 #ifdef BOARD_HAS_PSRAM 
-  #define REV_MULTIPLIER 1.2f
+  #define REV_MULTIPLIER 1.8f
   #define MALLOC_CAP        MALLOC_CAP_SPIRAM
 #else
   #define REV_MULTIPLIER 0.35f
@@ -120,7 +120,7 @@ class FxReverb {
           memset(allPassBuf2, 0, sizeof(float) * ALLPASS_BUF_LEN_2);
         }
         
-  		SetLevel( 0.5f );
+  		SetLevel( 0.4f );
   		SetTime( 1.0f );
   	}
 		

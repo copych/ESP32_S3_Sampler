@@ -132,6 +132,7 @@ static inline void IRAM_ATTR mixer() { // sum buffers
 }
 
 static inline void IRAM_ATTR sampler_generate_buf() {
+
   for (int i=0; i < DMA_BUF_LEN; i++){
     Sampler.getSample(sampler_l[gen_buf_id][i], sampler_r[gen_buf_id][i]) ;
   }

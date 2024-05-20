@@ -13,7 +13,7 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     DEBF("Voice %d: ", i);
     // sustain is global and needed for every voice, so we just pass a pointer to it.
-    Voices[i].init(Card, &_sustain);
+    Voices[i].init(Card, &_sustain, &_normalized);
   }
   if (num_sets > 0) {
     setSampleRate(SAMPLE_RATE);
@@ -71,7 +71,7 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
           }
         }
         DEBUG("SAMPLER: Retrig same note");
-        Voices[id].end(Adsr::END_FAST);
+       // Voices[id].end(Adsr::END_FAST);
         return id;
       }
     }
@@ -89,13 +89,13 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
     if (Voices[i].getAmplitude() < minAmp){
       minAmp = Voices[i].getAmplitude();
       id = i;
-     // Voices[i].end(false);
     }
   }
   DEBUG("Retrig most quiet");
   Voices[id].end(Adsr::END_FAST);
   return id;
   */
+
   for (int i = 0 ; i < _maxVoices ; i++) {
     if (Voices[i].getFeedScore() > maxAge){
       maxAge = Voices[i].getFeedScore();
@@ -103,7 +103,7 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
     }
   }
   DEBUG("SAMPLER: Retrig oldest");
-  Voices[id].end(Adsr::END_FAST);
+  //Voices[id].end(Adsr::END_FAST);
   return id;
 }
 
@@ -111,7 +111,7 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
   if (smp.channels > 0) {
-    DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
+    //DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
     Voices[i].start(_sampleMap[midiNote][mapVelo(velo)], midiNote, velo);
   } else {
     DEBUG("SAMPLER: no sample assigned");
@@ -277,5 +277,5 @@ void SamplerEngine::getSample(float& sampleL, float& sampleR){
     Voices[i].getSample(sL, sR);
     sampleL += sL;
     sampleR += sR;    
-  }
+  }  
 }

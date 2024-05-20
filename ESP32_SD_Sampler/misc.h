@@ -1,6 +1,6 @@
 #pragma once
 
-#define DEBUG_ON
+//#define DEBUG_ON
 
 #define INI_FILE "sampler.ini"
 
