@@ -102,9 +102,13 @@ typedef struct {
 
 typedef struct {
   entry_t entry;
+  fpath_t currentDir;
   uint32_t curSector  ;
   uint32_t curCluster ;
   uint32_t startSector;
+  uint32_t startCluster;
+  uint32_t firstCachedFatSector;
+  uint32_t firstCachedDirSector;
   int      direntNum ; 
 } point_t;
 

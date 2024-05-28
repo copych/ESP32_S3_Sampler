@@ -121,7 +121,7 @@ class FxReverb {
         }
         
   		SetLevel( 0.4f );
-  		SetTime( 1.0f );
+  		SetTime( 0.5f );
   	}
 		
     inline void SetTime( float value ){

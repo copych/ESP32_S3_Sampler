@@ -1,3 +1,26 @@
+/*
+* ESP32-S3 SD Sampler is a polyphonic music synthesizer, which can play PCM WAV samples directly from an SD (microSD) 
+* card connected to an ESP32-S3. Simple: one directory = one sample set. Plain text "sampler.ini" manages how samples 
+* to be spread over the keyboard. The main difference, comparing to the projects available on the net, is that this 
+* sampler WON'T try to preload all the stuff into the RAM/PSRAM to play it on demand. So it's not limited in this way 
+* by the size of the memory chip and can take really huge (per-note true sampled multi-velocity several gigabytes) 
+* sample sets. It only requires that the card is freshly formatted FAT32 and has no or very few bad blocks (actually 
+* it requires that the WAV files are written with little or no fragmentation at all). On start it analyzes existing 
+* file allocation table (FAT) and forms it's own sample lookup table to be able to access data immediately, using 
+* SDMMC with a 4-bit wide bus.
+*
+*
+* Libraries used:
+* Fixed string library https://github.com/fatlab101/FixedString
+* Arduino MIDI library https://github.com/FortySevenEffects/arduino_midi_library
+* If you want to use RGB LEDs, then also FastLED library is needed https://github.com/FastLED/FastLED
+*
+* (c) Copych 2024, License: MIT https://github.com/copych/ESP32_S3_Sampler?tab=MIT-1-ov-file#readme
+* 
+* More info:
+* https://github.com/copych/ESP32_S3_Sampler
+*/
+
 #include <Arduino.h>
 #include "misc.h"
 #include "sdmmc.h"
@@ -133,22 +156,18 @@ static void  control_task(void *userData) { // core 1 task
     
     Sampler.fillBuffer();
 
+    Sampler.freeSomeVoices();
+
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
     #endif
-    
-    Sampler.fillBuffer();
 
     #ifdef MIDI_VIA_SERIAL2
       MIDI2.read();
     #endif
     
-    Sampler.fillBuffer();
-
     taskYIELD();
 
-    Sampler.fillBuffer();
-    
     //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
     //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
     
@@ -162,7 +181,7 @@ void setup() {
   USBSerial.begin(115200);
 #endif
 
-delay(100);
+delay(2000);
 
   #ifdef RGB_LED
     FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
@@ -195,7 +214,7 @@ DEBUG("I2S: INIT");
   
   xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 23, &SynthTask, 0 );
  
-  xTaskCreatePinnedToCore( control_task, "ControlTask", 6000, NULL, 10, &ControlTask, 1 );
+  xTaskCreatePinnedToCore( control_task, "ControlTask", 8000, NULL, 10, &ControlTask, 1 );
 
   // setting timer interrupt
   /*

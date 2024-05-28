@@ -4,6 +4,8 @@
 void SamplerEngine::init(SDMMC_FAT32* Card){
   _Card = Card;
   _rootFolder = ROOT_FOLDER;
+  _limitSameNotes = MAX_SAME_NOTES;
+  _maxVoices = MAX_POLYPHONY;
   int num_sets = scanRootFolder();
   for (int i = 0; i < num_sets; i++) {
     DEBF("Folder %d : %s\r\n" , i ,_folders[i].c_str());
@@ -28,24 +30,27 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
 }
 
 int SamplerEngine::scanRootFolder() {  
+  fpath_t dirname;
+  DEBUG("SAMPLER: Scanning root folder");
   SDMMC_FileReader Reader(_Card);
   _rootFolder = ROOT_FOLDER;
   _folders.clear();
   _Card->setCurrentDir(_rootFolder);
   int index = 0;
-  fname_t str;  
   while (true) {
     entry_t* entry = _Card->nextEntry();
     if (entry->is_end) break;
     if (entry->is_dir) {
- //     point_t p = _Card->getCurrentPoint();
-   //   _Card->setCurrentDir(entry->name);
-      fname_t dir = entry->name;
-   //   if (Reader.open(INI_FILE) == ESP_OK ) {
-        _folders.push_back(dir);
+      point_t p = _Card->getCurrentPoint();
+      dirname = entry->name;      
+      DEBUG(dirname.c_str());
+      _Card->setCurrentDir(dirname);
+      if (Reader.open(INI_FILE) == ESP_OK ) {
+        Reader.close();
+        _folders.push_back(dirname);
         index++;
-   //   }
-   //   _Card->setCurrentPoint(p);
+      }
+      _Card->setCurrentPoint(p);
     }
   }
   _sampleSetsCount = index;
@@ -53,24 +58,24 @@ int SamplerEngine::scanRootFolder() {
 }
 
 inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
-  float maxAge = 0.0;
+  float maxVictimScore = 0.0;
   float minAmp = 1.0e30;
   int   candidates[_maxVoices];
   int id = 0;
-
   int same_notes = 0;
+  
   for (int i = 0 ; i < _maxVoices ; i++) {
-    if (Voices[i].getMidiNote() == midi_note){
+    if (Voices[i].getMidiNote() == midi_note){ // we don't check isActive() cause inactive notes get midiNote = 255
       candidates[same_notes] = i;
       same_notes++;
-      if (same_notes>=MAX_SAME_NOTES) {
-        for(int j=0 ; j<=same_notes; j++) {
-          if (Voices[j].getFeedScore() > maxAge){
-            maxAge = Voices[j].getFeedScore();
-            id = j;
+      if (same_notes>=_limitSameNotes) {
+        for(int j=0 ; j<same_notes; j++) {
+          if (Voices[candidates[j]].getKillScore() > maxVictimScore){
+            maxVictimScore = Voices[candidates[j]].getKillScore();
+            id = candidates[j];
           }
         }
-        DEBUG("SAMPLER: Retrig same note");
+        DEBF("SAMPLER: Retrig same note, killScore=%f\r\n", maxVictimScore);
        // Voices[id].end(Adsr::END_FAST);
         return id;
       }
@@ -97,8 +102,8 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
   */
 
   for (int i = 0 ; i < _maxVoices ; i++) {
-    if (Voices[i].getFeedScore() > maxAge){
-      maxAge = Voices[i].getFeedScore();
+    if (Voices[i].getKillScore() > maxVictimScore){
+      maxVictimScore = Voices[i].getKillScore();
       id = i;
     }
   }
@@ -111,7 +116,7 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
   if (smp.channels > 0) {
-    //DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
+    DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
     Voices[i].start(_sampleMap[midiNote][mapVelo(velo)], midiNote, velo);
   } else {
     DEBUG("SAMPLER: no sample assigned");
@@ -237,6 +242,11 @@ void SamplerEngine::initKeyboard() {
 }
 
 void SamplerEngine::resetSamples() {
+  _amp = 1.0;
+  _attackTime   = 0.0f;
+  _decayTime    = 0.1f;
+  _sustainLevel = 1.0f;
+  _releaseTime  = 8.0f;
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     Voices[i].end(Adsr::END_FAST);    
   }
@@ -278,4 +288,21 @@ void SamplerEngine::getSample(float& sampleL, float& sampleR){
     sampleL += sL;
     sampleR += sR;    
   }  
+}
+
+void SamplerEngine::freeSomeVoices() {
+  int id, n=0;
+  int desiredFree = 1;
+  float s, maxKillScore = 0.0f;
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    if (Voices[i].isActive() && !Voices[i].isDying()) n++;
+    s = Voices[i].getKillScore();
+    if (s > maxKillScore) {
+      maxKillScore = s;
+      id = i;
+    }
+  }
+  if (MAX_POLYPHONY <= n + desiredFree) {
+    Voices[id].end(Adsr::END_FAST);
+  }
 }

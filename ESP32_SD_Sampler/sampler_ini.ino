@@ -24,7 +24,7 @@ void SamplerEngine::parseIni() {
     else if (iniStr.startsWith("#")) continue;                      // comment
     else if (iniStr.startsWith(";")) continue;                      // comment
     if (iniStr.startsWith("[") && iniStr.endsWith("]")) {           // new section
-      if (section==S_NOTE || section==S_RANGE) loadRange(range);   // save parsed range/note section
+      if (section==S_NOTE || section==S_RANGE) applyRange(range);   // save parsed range/note section
       range.clear(_type);
       section = parseSection(iniStr);
       //DEBUG(section);
@@ -84,6 +84,17 @@ void SamplerEngine::parseIni() {
         if (tok == "NOTEOFF" || tok == "NOTE_OFF") {range.noteoff = parseBoolValue(iniStr); continue;}
         // speed = 1.15
         if (tok == "SPEED") {range.speed = parseFloatValue(iniStr); continue;}
+
+        if (tok == "ATTACKTIME" || tok == "ATTACK_TIME") {range.attack_time = parseFloatValue(iniStr); continue;}
+        // decayTime = 0.05
+        if (tok == "DECAYTIME" || tok == "DECAY_TIME") {range.decay_time = parseFloatValue(iniStr); continue;}
+        // releaseTime = 12.0
+        if (tok == "RELEASETIME" || tok == "RELEASE_TIME") {range.release_time = parseFloatValue(iniStr); continue;}
+        // sustainLevel = 1.0
+        if (tok == "SUSTAINLEVEL" || tok == "SUSTAIN_LEVEL") {range.sustain_level = parseFloatValue(iniStr); continue;}
+        
+        // loop = true // simple all-file infinite forward loop 
+        if (tok == "LOOP" || tok == "AUTOREPEAT" || tok == "REPEAT" || tok == "CYCLE" ) {range.loop = parseBoolValue(iniStr); continue;}
         break;
       case S_GROUP:
         // notes = c1,c2,c3
@@ -105,13 +116,19 @@ void SamplerEngine::parseIni() {
         if (tok == "NORMALIZED") {_normalized = parseBoolValue(iniStr); continue;}
         // enveloped=true
         if (tok == "ENVELOPED") {_enveloped = parseBoolValue(iniStr); continue;}
+        // amp = 1.1 // 10% "louder"
+        if (tok == "AMP" || tok == "AMPLIFY") {_amp = parseFloatValue(iniStr); continue;}
+        // max_voices = 12 // sometimes you may want to overwrite polyphony setting, but it will be no more than #defime MAX_POLYPHONY
+        if (tok == "LIMIT_SAME_NOTES" || tok == "LIMIT_SAME_NOTE" || tok == "LIMITSAMENOTE" || tok == "LIMITSAMENOTES") {_limitSameNotes = min(MAX_POLYPHONY, parseIntValue(iniStr)); continue;}
+        // limit_same_note = 0 // 0 = unlimited same note triggering, 1 and more limits simultanous sounding of same notes
+        if (tok == "MAX_VOICES" || tok == "MAX_POLYPHONY" || tok == "MAXPOLYPHONY" || tok == "MAXVOICES" || tok == "POLYPHONY") {_maxVoices = min(MAX_POLYPHONY, parseIntValue(iniStr)); continue;}
         break;
     }    
   }
   // save parsed section
-  if (section==S_NOTE || section==S_RANGE) loadRange(range);
+  if (section==S_NOTE || section==S_RANGE) applyRange(range);
   Reader.close();
-  DEBUG("INI PARSING COMPLETE");
+  DEBUG("SAMPLER: INI: PARSING COMPLETE");
   //delay(1000);
 }
 
@@ -136,7 +153,7 @@ bool SamplerEngine::parseBoolValue(str256_t& val) {
   val.toUpperCase();
   bool var = false;
   if (val=="TRUE" || val=="YES" || val=="Y" || val=="1") var = true;
-  if (val=="FALSE" || val=="NO" || val=="N" || val=="0") var = false;
+  if (val=="FALSE" || val=="NO" || val=="NONE" || val=="N" || val=="0") var = false;
   return var;
 }
 
@@ -191,11 +208,15 @@ eInstr_t SamplerEngine::parseInstrType(str256_t& val) {
 }
 
 
-void SamplerEngine::loadRange(ini_range_t& range) {
+void SamplerEngine::applyRange(ini_range_t& range) {
   _ranges.push_back(range);
   for (int i=range.first; i<=range.last; i++) {
     _keyboard[i].noteoff = range.noteoff;
-    _keyboard[i].tuning = range.speed;
+    _keyboard[i].tuning = range.speed;    
+    _keyboard[i].attack_time = range.attack_time;
+    _keyboard[i].decay_time = range.decay_time;
+    _keyboard[i].sustain_level = range.sustain_level;
+    _keyboard[i].release_time = range.release_time;
   }
   DEBF("INI: adding range for %s\r\n", range.instr.c_str());
 }
@@ -364,13 +385,13 @@ void SamplerEngine::processNameParser(entry_t* entry) {
           }
           i++;
         }
-         DEBF("Velocity: %d\r\n", velo);
+        // DEBF("Velocity: %d\r\n", velo);
         pos += match_weight;
         break;
       case P_SEPARATOR:
         s = tpl.item_str;
         len = s.length();
-        DEBF("Skipping separator %s\r\n", s.c_str());
+        // DEBF("Skipping separator %s\r\n", s.c_str());
         pos += len;
         break;
       default:
@@ -386,7 +407,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
       smp.orig_velo_layer = velo;
       smp.sectors = entry->sectors;
       smp.size = entry->size;
-      smp.name = (entry->name);
+//      smp.name = (entry->name);
       parseWavHeader(entry, smp);
       _sampleMap[note_num][velo] = smp;
     }
@@ -400,7 +421,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
         smp.orig_velo_layer = velo;
         smp.sectors = entry->sectors;
         smp.size = entry->size;
-        smp.name = (entry->name);
+  //      smp.name = (entry->name);
         parseWavHeader(entry, smp);
         _sampleMap[midi_note][velo] = smp;
       }
@@ -469,7 +490,6 @@ void SamplerEngine::finalizeMapping() {
               _sampleMap[i][j] = smp;
             }
           }
-          _sampleMap[i][j].speed *= _keyboard[i].tuning;
         }
       }
       break;
@@ -518,6 +538,16 @@ void SamplerEngine::finalizeMapping() {
       }
       // VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER
   }
+  // propagate envelopes to individual samples
+  for (int i = 0; i < _veloLayers; i++) {
+    for (int j = 0 ; j < 128; j++ ) {
+      _sampleMap[j][i].speed         *= _keyboard[j].tuning;
+      _sampleMap[j][i].attack_time    = _keyboard[j].attack_time;
+      _sampleMap[j][i].decay_time     = _keyboard[j].decay_time;
+      _sampleMap[j][i].sustain_level  = _keyboard[j].sustain_level;
+      _sampleMap[j][i].release_time   = _keyboard[j].release_time;
+    }
+  }
 }
 
 
@@ -555,8 +585,8 @@ void SamplerEngine::printMapping() {
   for (int i = 0; i < _veloLayers; i++) {
     for (int j = 0 ; j<128; j++ ) {
       if (!_sampleMap[j][i].sectors.empty()) {
-//        DEBF("%lu\t", _sampleMap[j][i].bit_depth );
-        DEBF("%s\t", _sampleMap[j][i].name.c_str() );
+        DEBF("%lu\t", _sampleMap[j][i].bit_depth );
+      //  DEBF("%s\t", _sampleMap[j][i].name.c_str() );
       } else {        
         DEBF( "%d\t", 0 );
       }

@@ -1,13 +1,14 @@
 #pragma once
-#define   BUF_EXTRA_BYTES   16       // for buffer overlapping
-#define   BUF_NUMBER        2       // tic-tac don't change, for readability only
-#define   CHANNELS          2       // 1 = mono, 2 = stereo
+#define   BUF_EXTRA_BYTES   32    // for buffer overlapping
+#define   BUF_NUMBER        2     // tic-tac don't change, for readability only
+#define   CHANNELS          2     // 1 = mono, 2 = stereo
 #define   BYTES_PER_CHANNEL 2
-const int   BUF_SIZE_BYTES  =   (READ_BUF_SECTORS * BYTES_PER_SECTOR);
-const int   BUF_SIZE_INTS   =   (BUF_SIZE_BYTES / 2);
-const int   INTS_PER_SECTOR =   (BYTES_PER_SECTOR / 2);
-const float MIDI_NORM       =   (1.0f / 127.0f);
-const int start_byte[5]     =   { 0, 0, 0, 1, 2 }; // n/a, 8 , 16 , 24 , 32 pcm bit per channel 
+
+const int   BUF_SIZE_BYTES      = (READ_BUF_SECTORS * BYTES_PER_SECTOR);
+const float DIV_BUF_SIZE_BYTES  = (1.0f / BUF_SIZE_BYTES);
+const int   INTS_PER_SECTOR     = (BYTES_PER_SECTOR / 2);
+const float MIDI_NORM           = (1.0f / 127.0f);
+const int   start_byte[5]       = { 0, 0, 0, 1, 2 }; // offset values for [-], 8, 16, 24, 32 pcm bits per channel 
 
 #include "adsr.h"
 #include "sdmmc.h"
@@ -43,7 +44,10 @@ typedef struct {
   float     decay_time    = 0.5f;
   float     sustain_level = 1.0f;
   float     release_time  = 12.0f;
-  FixedString<4>    name;
+  int       loop_mode     = 0; // 0 = none,  1 = forward
+  int32_t   loop_first_smp= -1;
+  int32_t   loop_last_smp = -1;
+  // FixedString<4>    name; // only used in SamplerEngine::printMapping()
   std::vector<chain_t>   sectors;
 } sample_t;
 
@@ -63,33 +67,39 @@ class Voice {
     inline void       setPressed(bool pr)   {_pressed = pr;}
     inline int        getChannels()   {return _sampleFile.channels;}
     inline bool       isActive()      {return _active;}
+    inline bool       isDying()       {return _dying;}
     inline uint8_t    getMidiNote()   {return _midiNote;}
     inline uint8_t    getMidiVelo()   {return _midiVelo;}
     inline uint32_t   getBufPlayed()  {return _bufPlayed;}
     inline float      getAmplitude()  {return _amplitude;}
-    inline float      getFeedScore()        ;
+    inline float      getKillScore()        ;
     inline int        getPlayPos()    {return _bufPosSmp[_idToPlay];}
     inline uint32_t   getBufSize()    {return _bufSizeSmp;}
     inline void       toggleBuf();
     
   private:
+  // some members are volatile because they are used in different tasks on both cores, while real-time conditions require immediate changes without caching 
     SDMMC_FAT32*        _Card                   ;
-    bool*               _sustain                ; // every voice needs to know if sustain is ON. Propagating it in a loop I thought wasn't a good idea
+    bool*               _sustain                ; // every voice needs to know if sustain is ON. 
     bool*               _normalized             ;
     volatile float      _amp                    = 1.0f;
     volatile bool       _active                 = false;
+    volatile bool       _dying                  = false;
     volatile uint8_t*   _buffer0;               // pointer to the 1st allocated SD-reader buffer
     volatile uint8_t*   _buffer1;               // pointer to the 2nd allocated SD-reader buffer
-    volatile uint8_t*   _playBuf8;              // pointer to the buffer which is ready to play (one of the two allocated)
-    volatile uint8_t*   _fillBuf8;              // pointer to the buffer which awaits filling (one of the two allocated)
+    volatile uint8_t*   _playBuffer;            // pointer to the buffer which is being played (one of the two toggling buffers)
+    volatile uint8_t*   _fillBuffer;            // pointer to the buffer which awaits filling (one of the two toggling buffers)
     uint32_t            _bufSizeBytes           = READ_BUF_SECTORS * BYTES_PER_SECTOR;
-    uint32_t            _bufSizeSmp             = 0;     
+    uint32_t            _bufSizeSmp             = 0;
+    int                 _changedBufBytes        = 0;
     uint32_t            _hunger                 = 0;
     int                 _bytesToRead            = 0; // can be negative
     uint32_t            _bytesToPlay            = 0;
-    volatile int        _offset                 = 0; // buf offset (bytes or int16_t's depending on sample bit depth)
+    volatile int        _playBufOffset          = 0; // play-buffer byte offset till the 1st sample
+    volatile int        _fillBufOffset          = 0; // fill-buffer byte offset till the 1st sample
     volatile int        _pL1, _pL2, _pR1, _pR2  ;
-    volatile int        _samplesInBuf           = 0;
+    volatile int        _samplesInFillBuf       = 0;
+    volatile int        _samplesInPlayBuf       = 0;
     volatile int        _bufPosSmp[2]           = {0, 0}; // sample pos, it depends on the number of channels and bit depth of a wav file assigned to this voice;
     float               _bufPosSmpF             = 0.0;    // exact calculated sample reading position including speed, pitchbend etc. 
     volatile bool       _bufEmpty[2]            = {true, true};
@@ -108,11 +118,19 @@ class Voice {
     uint32_t            _lastSectorRead         = 0;      // last sector that was read during this sample playback
     uint32_t            _curChain               = 0;      // current chain (linear non-fragmented segment of a sample file) index
     uint32_t            _bufPlayed              = 0;      // number of buffers played (for float correction)
+    uint32_t            _coarseBytesPlayed      = 0;
+    volatile uint32_t   _bytesPlayed            = 0;
     volatile float      _amplitude              = 0.0;
     volatile bool       _pressed                = false;
     volatile bool       _eof                    = true;
-    float               _feedScoreCoef          = 1.0f;
-    float               _hungerCoef             = 1.0f;
+    volatile float      _killScoreCoef          = 1.0f;
+    volatile float      _hungerCoef             = 1.0f;
+    bool                _loop                   = false;
+    int                 _loopState              = 0;
+    uint32_t            _loopFirstSmp           = 0;
+    uint32_t            _loopLastSmp            = 0;
+    uint32_t            _loopFirstSector        = 0;
+    uint32_t            _loopLastSector         = 0;
     sample_t            _sampleFile             ;
     sample_t            _nextFile               ;
     int                 _lowest                 = 1;

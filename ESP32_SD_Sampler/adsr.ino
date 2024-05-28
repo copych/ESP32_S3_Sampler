@@ -17,7 +17,7 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    setTime(ADSR_SEG_FAST_RELEASE, 0.0001814f); // 8 samples @44100Hz trying to avoid clicks
+    setTime(ADSR_SEG_FAST_RELEASE, 0.0005f); // a few samples trying to avoid clicks
     //fastReleaseD0_ = 0.02553f;
     //fastReleaseTime_ =  0.0001814f;
 }

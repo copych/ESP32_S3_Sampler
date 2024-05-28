@@ -1,8 +1,8 @@
 #pragma once
 
 #define MAX_VELOCITY_LAYERS   16
-#define MAX_SAME_NOTES        2
-#define MAX_POLYPHONY         17         // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
+#define MAX_SAME_NOTES        3
+#define MAX_POLYPHONY         18         // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
 #define ROOT_FOLDER           "/"         // only </> is supported yet
 #define WAV_CHANNELS          2
 #define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4
@@ -32,7 +32,13 @@ typedef struct {
   str20_t     instr       = "";
   bool        noteoff     = true;
   float       speed       = 1.0f;
-  int         velo_layer   = -1;
+  int         velo_layer  = -1;
+  
+  float       attack_time   = 0.0f;
+  float       decay_time    = 0.5f;
+  float       sustain_level = 1.0f;
+  float       release_time  = 12.0f;
+  bool        loop          = false;
   inline void clear(eInstr_t t) {
     first = 0;
     last = 127;
@@ -51,7 +57,11 @@ typedef struct {
   float       tuning      = 1.0f; // 0.9 = 10% lower, 1.1 = 10% higher
   int         transpose   = 0;    // +/- semitones
   bool        noteoff     = true; // should it handle note off messages
-  int         group       = -1;
+  int         group       = -1;  
+  float       attack_time   = 0.0f;
+  float       decay_time    = 0.5f;
+  float       sustain_level = 1.0f;
+  float       release_time  = 12.0f;
 } midikey_t;
 
 typedef struct {
@@ -82,6 +92,7 @@ class SamplerEngine {
     fname_t         getFolderName(int id)                 { return _folders[id]; }
     fname_t         getCurrentFolder()                    { return _currentFolder; }
     int             getActiveVoices();
+    void            freeSomeVoices();
     int             scanRootFolder();                       // scans root folder for sample directories, returns count of valid sample folders, -1 if error
     void            loadInstrument(uint8_t noteLow=0, uint8_t noteHigh=127); // loads config and prepares samples from the current folder
     inline void     setSampleRate(unsigned int sr)        { if (sr > 1) _sampleRate = sr; }
@@ -109,7 +120,7 @@ class SamplerEngine {
     eInstr_t        parseInstrType( str256_t& val );
     variants_t      parseVariants( str256_t& val); 
     void            parseWavHeader(entry_t* entry, sample_t& smp);
-    void            loadRange(ini_range_t& range);
+    void            applyRange(ini_range_t& range);
     void            finalizeMapping();
     void            buildVeloCurve();
     uint8_t         mapVelo(uint8_t velo);
@@ -127,13 +138,15 @@ class SamplerEngine {
     int             _sampleRate           = SAMPLE_RATE;
     byte            _sampleChannels       = WAV_CHANNELS; // 2 = stereo, 1 = mono : use or not stereo data in sample files
     byte            _maxVoices            = MAX_POLYPHONY; 
+    int             _limitSameNotes       = MAX_SAME_NOTES;
     fname_t         _rootFolder           ;
     volatile int    _currentFolderId      = 0;
     fname_t         _currentFolder        ;
     int             _sampleSetsCount      = 0;
+    float           _amp                  = 1.0;
     float           _attackTime           = 0.0;
     float           _decayTime            = 0.05;
-    float           _releaseTime          = 12.0;
+    float           _releaseTime          = 8.0;
     float           _sustainLevel         = 1.0;
     eVoiceAlloc_t   _voiceAllocMethod     = VA_OLDEST; // not implemented, VA_PERCEPTUAL is gonna be the only one
     int             _parser_i             = 0;
