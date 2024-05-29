@@ -32,15 +32,15 @@ Reverb is implemented as a POC (Proof of Concept). Probably there are some idle 
 # TODO
 The state of the project has not gone far from POC, so don't you expect a ready-made perfect sampler.
 What's not working:
-* On polyphony overrun there are some audible clicks, it should retrig voices in a more delicate way.
+* <s>On polyphony overrun there are some audible clicks, it should retrig voices in a more delicate way.</s> Seems to be fixed now.
 * Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
 * Velocity routines are not fully implemented.
 * Looping of any kind is not implemented.
 * <s>Envelope params are hard-coded</s> (MOVED TO INI, MIDI CC CONTROLS TO COME)
-* SAMPLER.INI syntax has to be developed much further. (CHANGED A LOT, A LOT MORE TO DO)
+* <s>SAMPLER.INI syntax has to be developed much further.</s> Basic syntax is done now.
 * Only a simple reverb effect is implemented as a POC with hard-coded params.
 * It lacks schematics, but, please, check the .h files and /media folder for the connectivity info.
-* 24 and 32 bit samples support (24 BIT STEREO IS SUPPORTED NOW, THREATED AS 16 BIT YET)
+* 16, 24 and 32 bit samples support. 16 and 24 bits are supported now.
 * <s>Demo video shall be done</s>
 
 # SAMPLER.INI examples
