@@ -88,8 +88,6 @@ size_t bytes_written;
 #endif
 }
 
-
-
 static inline void IRAM_ATTR mixer() { // sum buffers 
 #ifdef DEBUG_MASTER_OUT
   static float meter = 0.0f;
@@ -97,19 +95,44 @@ static inline void IRAM_ATTR mixer() { // sum buffers
   static const float attenuator = 0.5f;
   static float sampler_out_l, sampler_out_r;
   static float mono_mix;
-
+  static float dly_l, dly_r;
+  static float rvb_l, rvb_r;
+  
     for (int i=0; i < DMA_BUF_LEN; i++) {
       
       sampler_out_l = sampler_l[out_buf_id][i] * attenuator;
       sampler_out_r = sampler_r[out_buf_id][i] * attenuator;
 
-// TODO: add fx 
-      Reverb.Process(&sampler_out_l, &sampler_out_r);
+  //    DJFilter.Process(&sampler_out_l, &sampler_out_r);
 
-      mix_buf_l[out_buf_id][i] = (sampler_out_l);
-      mix_buf_r[out_buf_id][i] = (sampler_out_r);
+  //    Drive.Process(&sampler_out_l, &sampler_out_r);               // overdrive // make it stereo firstly
+  //    Distortion.Process(&sampler_out_l, &sampler_out_r);             // distortion // make it stereo firstly
+/*
+      dly_l = sampler_out_l * Sampler.getDelaySendLevel(); // delay bus
+      dly_r = sampler_out_r * Sampler.getDelaySendLevel();
+      Delay.Process( &dly_l, &dly_r );
+ 
+      sampler_out_l += dly_l;
+      sampler_out_r += dly_r;
+*/
 
-      mono_mix = 0.5f * (mix_buf_l[out_buf_id][i] + mix_buf_r[out_buf_id][i]);
+
+      rvb_l = sampler_out_l * Sampler.getReverbSendLevel(); // reverb bus
+      rvb_r = sampler_out_r * Sampler.getReverbSendLevel();
+      Reverb.Process( &rvb_l, &rvb_r );
+      
+      sampler_out_l += rvb_l;
+      sampler_out_r += rvb_r;
+
+      
+      mono_mix = 0.5f * (sampler_out_l + sampler_out_r);
+      
+  //    Comp.Process( mono_mix * 0.25f);  // calc compressor gain, may be side-chain driven 
+            
+  //    mix_buf_l[out_buf_id][i] = Comp.Apply(sampler_out_l);
+  //    mix_buf_r[out_buf_id][i] = Comp.Apply(sampler_out_r);
+      mix_buf_l[out_buf_id][i] = 0.6f* (sampler_out_l);
+      mix_buf_r[out_buf_id][i] = 0.6f* (sampler_out_r);
 
 #ifdef DEBUG_MASTER_OUT
       if ( i % 16 == 0) meter = meter * 0.95f + fabs( mono_mix); 

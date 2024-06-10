@@ -17,10 +17,9 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    setTime(ADSR_SEG_FAST_RELEASE, 0.0005f); // a few samples trying to avoid clicks
-    //fastReleaseD0_ = 0.02553f;
-    //fastReleaseTime_ =  0.0001814f;
+    setTime(ADSR_SEG_FAST_RELEASE, 0.0002f); // a few samples trying to avoid clicks
 }
+
 
 void Adsr::retrigger(eEnd_t hardness) {
   gate_ = true;
@@ -36,6 +35,7 @@ void Adsr::retrigger(eEnd_t hardness) {
       D0_ = attackD0_;
   }
 }
+
 
 void Adsr::end(eEnd_t hardness) {
   gate_ = false;
@@ -60,6 +60,7 @@ void Adsr::end(eEnd_t hardness) {
   }
 }
 
+
 inline Adsr::eSegment_t Adsr::getCurrentSegment() {
   Adsr::eSegment_t ret = mode_;
   if (gate_ && (x_ == sus_level_)) {
@@ -67,6 +68,7 @@ inline Adsr::eSegment_t Adsr::getCurrentSegment() {
   }
   return ret;
 }
+
 
 void Adsr::setTime(int seg, float time) {
   switch (seg) {
@@ -93,6 +95,7 @@ void Adsr::setTime(int seg, float time) {
     default: return;
   }
 }
+
 
 void Adsr::setAttackTime(float timeInS, float shape) {
   if ((timeInS != attackTime_) || (shape != attackShape_)) {

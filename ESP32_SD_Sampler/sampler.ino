@@ -16,6 +16,7 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
     DEBF("Voice %d: ", i);
     // sustain is global and needed for every voice, so we just pass a pointer to it.
     Voices[i].init(Card, &_sustain, &_normalized);
+    Voices[i].my_id = i;
   }
   if (num_sets > 0) {
     setSampleRate(SAMPLE_RATE);
@@ -27,6 +28,8 @@ void SamplerEngine::init(SDMMC_FAT32* Card){
       DEBUG("--- no samples found");
     }      
   }
+  setReverbSendLevel(0.2f);
+  setDelaySendLevel(0.0f);
 }
 
 int SamplerEngine::scanRootFolder() {  
@@ -60,8 +63,10 @@ int SamplerEngine::scanRootFolder() {
 inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
   float maxVictimScore = 0.0;
   float minAmp = 1.0e30;
-  int   candidates[_maxVoices];
+  
   int id = 0;
+  /*
+  static int   candidates[MAX_POLYPHONY];
   int same_notes = 0;
   
   for (int i = 0 ; i < _maxVoices ; i++) {
@@ -75,12 +80,13 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
             id = candidates[j];
           }
         }
-        DEBF("SAMPLER: Retrig same note, killScore=%f\r\n", maxVictimScore);
-       // Voices[id].end(Adsr::END_FAST);
+     //   DEBF("SAMPLER: Kill same note, killScore=%f\r\n", maxVictimScore);
+       //   Voices[id].end(Adsr::END_FAST);
         return id;
       }
     }
   }
+  */
   
   for (int i = 0 ; i < _maxVoices ; i++) {
     if (!Voices[i].isActive()){
@@ -107,7 +113,7 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
       id = i;
     }
   }
-  DEBUG("SAMPLER: Retrig oldest");
+  DEBUG("SAMPLER: No free slot: Steal a voice");
   //Voices[id].end(Adsr::END_FAST);
   return id;
 }
@@ -116,7 +122,8 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
   if (smp.channels > 0) {
-    DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
+   // DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
+    Voices[i].setStarted(false);
     Voices[i].start(_sampleMap[midiNote][mapVelo(velo)], midiNote, velo);
   } else {
     DEBUG("SAMPLER: no sample assigned");
@@ -129,7 +136,7 @@ inline void SamplerEngine::noteOff(uint8_t midiNote, bool hard ){
   if (hard) end_type = Adsr::END_NOW; else end_type = Adsr::END_REGULAR;
   if (_keyboard[midiNote].noteoff || hard) {
     for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-      if (Voices[i].getMidiNote() == midiNote) {      
+      if (Voices[i].getMidiNote() == midiNote && Voices[i].isActive()) {      
         // DEBF("SAMPLER: NOTE OFF Voice %d note %d \r\n", i, midiNote);
         Voices[i].setPressed(false);
         Voices[i].end(end_type);
@@ -145,12 +152,60 @@ inline void SamplerEngine::setSustain(bool onoff) {
   DEBF("SAMPLER: sustain: %d\r\n", onoff);
   if (!onoff) {
     for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-      if (_keyboard[Voices[i].getMidiNote()].noteoff) {
+      if (_keyboard[Voices[i].getMidiNote()].noteoff && Voices[i].isActive() ) {
         Voices[i].end(Adsr::END_REGULAR);   
       }
     }
   }
 }
+
+
+
+
+void SamplerEngine::setAttackTime(float val) {
+  for (int i = 0; i < _veloLayers; i++) {
+    for (int j = 0 ; j < 128; j++ ) {
+      _sampleMap[j][i].attack_time = val;
+    }
+  }
+  for (int i = 0; i < _maxVoices; i++) {
+    Voices[i].setAttackTime(val);    
+  }
+}
+
+void SamplerEngine::setDecayTime(float val) {
+  for (int i = 0; i < _veloLayers; i++) {
+    for (int j = 0 ; j < 128; j++ ) {
+      _sampleMap[j][i].decay_time = val;
+    }
+  }
+  for (int i = 0; i < _maxVoices; i++) {
+    Voices[i].setDecayTime(val);    
+  }
+}
+
+void SamplerEngine::setReleaseTime(float val) {
+  for (int i = 0; i < _veloLayers; i++) {
+    for (int j = 0 ; j < 128; j++ ) {
+      _sampleMap[j][i].release_time = val;
+    }
+  }
+  for (int i = 0; i < _maxVoices; i++) {
+    Voices[i].setReleaseTime(val);    
+  }
+}
+
+void SamplerEngine::setSustainLevel(float val) {
+  for (int i = 0; i < _veloLayers; i++) {
+    for (int j = 0 ; j < 128; j++ ) {
+      _sampleMap[j][i].sustain_level = val;
+    }
+  }
+  for (int i = 0; i < _maxVoices; i++) {
+    Voices[i].setSustainLevel(val);    
+  }
+}
+
 
 uint8_t SamplerEngine::mapVelo(uint8_t velo) {
   switch(_veloCurve) {
@@ -210,6 +265,7 @@ inline void SamplerEngine::setCurrentFolder(int folder_id) {
       processNameParser(entry); // parse filenames basing on a prepared template
     }
   }
+  printMapping();
   finalizeMapping();  // fill the gaps when we don't have dedicated samples for some pitches or velocity layers
   printMapping();
 }
@@ -262,10 +318,11 @@ void SamplerEngine::resetSamples() {
       _sampleMap[j][i].amp = 1.0;
       _sampleMap[j][i].speed = 0.0;
       _sampleMap[j][i].bit_depth = 0;
-      _sampleMap[j][i].attack_time   = 0.0f;
-      _sampleMap[j][i].decay_time    = 0.1f;
-      _sampleMap[j][i].sustain_level = 1.0f;
-      _sampleMap[j][i].release_time  = 0.5f;
+      _sampleMap[j][i].attack_time   = _attackTime;
+      _sampleMap[j][i].decay_time    = _decayTime;
+      _sampleMap[j][i].sustain_level = _sustainLevel;
+      _sampleMap[j][i].release_time  = _releaseTime;
+      _sampleMap[j][i].native_freq  = false;
     }
   }
 }
@@ -292,17 +349,38 @@ void SamplerEngine::getSample(float& sampleL, float& sampleR){
 
 void SamplerEngine::freeSomeVoices() {
   int id, n=0;
-  int desiredFree = 1;
-  float s, maxKillScore = 0.0f;
+  static byte note_count[128];
+  int midi_note;
+  int desiredFree = SACRIFY_VOICES;
+  float score, maxKillScore = 0.0f;
+  memset(note_count, 0, 128);
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
-    if (Voices[i].isActive() && !Voices[i].isDying()) n++;
-    s = Voices[i].getKillScore();
-    if (s > maxKillScore) {
-      maxKillScore = s;
+    if (Voices[i].isActive() && !Voices[i].isDying() ) {
+      n++;
+      midi_note = Voices[i].getMidiNote();
+      note_count[midi_note]++;
+      if (note_count[midi_note] > _limitSameNotes) { // if we have limit overrun, find the best candidate
+        for (int j = 0 ; j < MAX_POLYPHONY ; j++) {
+          if (Voices[j].getMidiNote() == midi_note) {
+            score = Voices[j].getKillScore();
+            if (score > maxKillScore) {
+              maxKillScore = score;
+              id = j;
+            }
+          }
+        }
+        Voices[id].end(Adsr::END_FAST);
+        return;
+      }
+    }
+    score = Voices[i].getKillScore();
+    if (score > maxKillScore) {
+      maxKillScore = score;
       id = i;
     }
   }
-  if (MAX_POLYPHONY <= n + desiredFree) {
+  if (MAX_POLYPHONY < n + desiredFree) {
     Voices[id].end(Adsr::END_FAST);
+    return;
   }
 }

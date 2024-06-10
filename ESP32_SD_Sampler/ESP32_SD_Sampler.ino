@@ -80,28 +80,7 @@ static float sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
 static float mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
 static float mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
 int16_t out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
-portMUX_TYPE eventMux = portMUX_INITIALIZER_UNLOCKED; 
-/*
-hw_timer_t * timer1 = NULL;                 // Timer variables
-hw_timer_t * timer2 = NULL;                 // Timer variables
-portMUX_TYPE timer1Mux = portMUX_INITIALIZER_UNLOCKED; 
-portMUX_TYPE timer2Mux = portMUX_INITIALIZER_UNLOCKED; 
-volatile boolean timer1_fired = false;
-volatile boolean timer2_fired = false;
 
-// =============================================================== Timer interrupt handler ===============================================================
-void IRAM_ATTR onTimer1() {
-   portENTER_CRITICAL_ISR(&timer1Mux);
-   timer1_fired = true;
-   portEXIT_CRITICAL_ISR(&timer1Mux);
-}
-
-void IRAM_ATTR onTimer2() {
-   portENTER_CRITICAL_ISR(&timer2Mux);
-   timer2_fired = true;
-   portEXIT_CRITICAL_ISR(&timer2Mux);
-}
-*/
 
 // =============================================================== forward declarations ===============================================================
 static inline void IRAM_ATTR mixer() ;
@@ -111,30 +90,60 @@ static inline void IRAM_ATTR sampler_generate_buf();
 // =============================================================== PER CORE TASKS ===============================================================
 static void IRAM_ATTR audio_task(void *userData) { // core 0 task
   DEBUG ("core 0 audio task run");
-  vTaskDelay(10);
- // volatile uint32_t t1,t2,t3,t4;
+  vTaskDelay(20);
+  volatile uint32_t t1,t2,t3,t4;
   out_buf_id = 0;
   gen_buf_id = 1;
   while (true) {
-   // t1=micros();
+#ifdef DEBUG_CORE_TIME 
+    t1=micros();
+#endif
+
     sampler_generate_buf();
-  //  t2=micros();
+    
+#ifdef DEBUG_CORE_TIME 
+    t2=micros();
+#endif
+
     mixer(); 
-   // t3=micros();
+    
+#ifdef DEBUG_CORE_TIME 
+    t3=micros();
+#endif
+
     i2s_output();
-  //  t4=micros();
-   // DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+    
+#ifdef DEBUG_CORE_TIME 
+    t4=micros();
+    DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+#endif
+
     out_buf_id = 1;
     gen_buf_id = 0;
- 
-  //  t1=micros();
+    
+#ifdef DEBUG_CORE_TIME 
+    t1=micros();
+#endif
+
     sampler_generate_buf();
-  //  t2=micros();
+    
+#ifdef DEBUG_CORE_TIME 
+    t2=micros();
+#endif
+
     mixer(); 
- //   t3=micros();
+    
+#ifdef DEBUG_CORE_TIME 
+    t3=micros();
+#endif
+
     i2s_output();
-  //  t4=micros();
-   // DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+    
+#ifdef DEBUG_CORE_TIME 
+    t4=micros();
+    DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+#endif
+
     out_buf_id = 0;
     gen_buf_id = 1;
   }
@@ -142,21 +151,16 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
  
 static void  control_task(void *userData) { // core 1 task
   DEBUG ("core 1 control task run");
-  vTaskDelay(10);
+  vTaskDelay(20);
   static uint32_t passby = 0;
   while (true) { 
-    /*
-    if (timer2_fired) {
-      timer2_fired = false;
-      timeClick();
-    }
-    */
 
     processButtons();
     
+    Sampler.freeSomeVoices();
+    
     Sampler.fillBuffer();
 
-    Sampler.freeSomeVoices();
 
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
@@ -168,6 +172,12 @@ static void  control_task(void *userData) { // core 1 task
     
     taskYIELD();
 
+    #ifdef RGB_LED
+    leds[0].setHue(Sampler.getActiveVoices()*30); 
+    FastLED.show();
+    #endif
+      DEBF("Active voices %d of %d \r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
+    
     //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
     //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
     
@@ -183,12 +193,11 @@ void setup() {
 
 delay(2000);
 
-  #ifdef RGB_LED
-    FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
-    FastLED.setBrightness(1);
-  #endif
+#ifdef RGB_LED
+  FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
+  FastLED.setBrightness(1);
+#endif
   
-
 
 DEBUG("CARD: BEGIN");
   Card.begin();
@@ -205,7 +214,7 @@ DEBUG("SAMPLER: INIT");
 
   Sampler.init(&Card);
   
-  Sampler.setCurrentFolder(0);
+  Sampler.setCurrentFolder(3);
 
 DEBUG("I2S: INIT");
   i2sInit();
@@ -216,20 +225,6 @@ DEBUG("I2S: INIT");
  
   xTaskCreatePinnedToCore( control_task, "ControlTask", 8000, NULL, 10, &ControlTask, 1 );
 
-  // setting timer interrupt
-  /*
-  timer1 = timerBegin(0, 80, true);               // Setup timer for midi
-  timerAttachInterrupt(timer1, &onTimer1, true);  // Attach callback
-  timerAlarmWrite(timer1, 4000, true);            // 4000us, autoreload
-  timerAlarmEnable(timer1);
-  */
-  /*
-  timer2 = timerBegin(1, 80, true);               // Setup general purpose timer
-  timerAttachInterrupt(timer2, &onTimer2, true);  // Attach callback
-  timerAlarmWrite(timer2, 500000, true);          // microseconds, autoreload
-  timerAlarmEnable(timer2);
-  DEBUG ("Timer(s) started");
-  */
   #ifdef C_MAJOR_ON_START
   delay(100);
   Sampler.noteOn(60,100);
@@ -247,10 +242,11 @@ DEBUG("I2S: INIT");
 
 void loop() {
 
-  #ifdef RGB_LED
+#ifdef RGB_LED
   leds[0].setHue(1); //green
   FastLED.setBrightness(1);
   FastLED.show();
-  #endif
+#endif
+
   vTaskDelete(NULL);
 }

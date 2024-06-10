@@ -254,8 +254,8 @@ class SDMMC_FAT32 {
     fpath_t   _currentDir;
     entry_t   _currentEntry;
     uint32_t  _bytesPerCluster;
-    uint32_t  _startSector;
-    uint32_t  _startCluster;
+    volatile uint32_t  _startSector;
+    volatile uint32_t  _startCluster;
     /*
      * Cluster and sector calculations
      */
@@ -266,7 +266,7 @@ class SDMMC_FAT32 {
     inline uint32_t lastSectorOfCluster(uint32_t cluster)   {return firstSectorOfCluster(cluster + 1) - 1 ; }
     inline uint32_t clusterBySector(uint32_t sector)        {return (sector - _firstSector  - _firstDataSector) / _sectorsPerCluster + _rootCluster ; }
     inline uint32_t fat32_cluster_id(uint16_t high, uint16_t low)  {return high << 16 | low; }
-    static inline uint32_t fat32_cluster_id(sfn_dir_t *d)   {return d->hi_start << 16 | d->lo_start; }
+    inline uint32_t fat32_cluster_id(sfn_dir_t *d)   {return d->hi_start << 16 | d->lo_start; }
     uint32_t        getNextCluster(uint32_t cluster);
     uint32_t        findEntryCluster(const fpath_t& search_name) ; // returns first sector of a file
     uint32_t        findEntrySector(const fpath_t& search_name) {return firstSectorOfCluster(findEntryCluster(search_name));}
@@ -278,10 +278,10 @@ class SDMMC_FAT32 {
     // convert name from 8.3
     void dirent_name(sfn_dir_t *d,  char *name);
     
-    static inline int is_dir(sfn_dir_t *d) { return d->attr == FAT32_DIR; }
-    static inline int dirent_is_lfn(sfn_dir_t *d) { return (d->attr == FAT32_LONG_FILE_NAME); }
+    inline int is_dir(sfn_dir_t *d) { return d->attr == FAT32_DIR; }
+    inline int dirent_is_lfn(sfn_dir_t *d) { return (d->attr == FAT32_LONG_FILE_NAME); }
     
-    static inline int is_attr(uint32_t x, uint32_t flag) { 
+    inline int is_attr(uint32_t x, uint32_t flag) { 
         if(x == FAT32_LONG_FILE_NAME)
             return x == flag;
         return (x & flag) == flag;

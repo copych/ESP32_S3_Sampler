@@ -1,8 +1,8 @@
 #pragma once
 
 #define MAX_VELOCITY_LAYERS   16
-#define MAX_SAME_NOTES        3
-#define MAX_POLYPHONY         18         // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
+#define MAX_SAME_NOTES        2
+#define MAX_POLYPHONY         17         // empiric : MAX_POLYPHONY * READ_BUF_SECTORS <= 156
 #define ROOT_FOLDER           "/"         // only </> is supported yet
 #define WAV_CHANNELS          2
 #define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4
@@ -16,7 +16,7 @@
 
 enum eVoiceAlloc_t  { VA_OLDEST, VA_MOST_QUIET, VA_PERCEPTUAL, VA_NUMBER }; // not implemented
 enum eVeloCurve_t   { VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // not implemented
-enum eItem_t        { P_NUMBER, P_NAME, P_OCTAVE, P_SEPARATOR, P_VELO, P_INSTRUMENT }; // filename template elements 
+enum eItem_t        { P_NUMBER, P_NAME, P_MIDINOTE, P_OCTAVE, P_SEPARATOR, P_VELO, P_INSTRUMENT }; // filename template elements 
 enum eInstr_t       { SMP_MELODIC, SMP_PERCUSSIVE }; 
 enum eSection_t     { S_NONE, S_SAMPLESET, S_FILENAME, S_ENVELOPE, S_NOTE, S_RANGE, S_GROUP };
 
@@ -66,7 +66,7 @@ typedef struct {
 
 typedef struct {
   eItem_t                item_type;
-  str8_t                 item_str;
+  str20_t                 item_str;
 } template_item_t;
 
 /*
@@ -103,6 +103,19 @@ class SamplerEngine {
     inline void     setNextFolder();                        // sets current folder to the next dir which was found during scanFolders()
     inline void     setPrevFolder();                        // sets current folder to the previous dir which was found during scanFolders()
     inline void     setSustain(bool onoff)                ;
+    inline void     setDelaySendLevel(float val)          {_sendDelay = val;}
+    inline void     setReverbSendLevel(float val)         {_sendReverb = val;}
+    inline void     setVolume(float val)                  {_amp = val;}
+    inline void     setPano(float val)                    {_pano = val;}
+    inline float    getDelaySendLevel()                   {return _sendDelay;}
+    inline float    getReverbSendLevel()                  {return _sendReverb;}
+    inline float    getVolume()                           {return _amp;}
+    inline float    getPano()                             {return _pano;}
+    
+    void            setSustainLevel(float seconds);
+    void            setAttackTime(float seconds);
+    void            setDecayTime(float seconds);
+    void            setReleaseTime(float seconds);
     inline void     noteOn(uint8_t midiNote, uint8_t velocity);
     inline void     noteOff(uint8_t midiNote, bool hard = false);
     void            fillBuffer();
@@ -142,8 +155,11 @@ class SamplerEngine {
     fname_t         _rootFolder           ;
     volatile int    _currentFolderId      = 0;
     fname_t         _currentFolder        ;
-    int             _sampleSetsCount      = 0;
-    float           _amp                  = 1.0;
+    int             _sampleSetsCount      = 0;    
+    float           _sendDelay            = 0.0;
+    float           _sendReverb           = 0.0;
+    float           _amp                  = 0.9;
+    float           _pano                 = 0.5;
     float           _attackTime           = 0.0;
     float           _decayTime            = 0.05;
     float           _releaseTime          = 8.0;

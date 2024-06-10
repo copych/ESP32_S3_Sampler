@@ -1,13 +1,20 @@
 #pragma once
 
-#define DEBUG_ON
+//#define DEBUG_ON
+//#define DEBUG_CORE_TIME
+
 
 #define INI_FILE "sampler.ini"
+
+
+#define SACRIFY_VOICES        1          // voices used for smooth transisions to avoid clicks
 
 #define DMA_NUM_BUF 2
 #define DMA_BUF_LEN 32
 #define READ_BUF_SECTORS 7      // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
 #define FASTLED_INTERNAL        // remove annoying pragma messages
+
+const float MIDI_NORM           = (1.0f / 127.0f);
 
 #define SAMPLE_RATE 44100
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
@@ -15,9 +22,9 @@ const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 //#define C_MAJOR_ON_START             // play C major chord on startup (testing)
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  //#define RGB_LED 38              // blink as a vital sign
-  #define MIDIRX_PIN      4      // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
-  #define MIDITX_PIN      9      // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
+//  #define RGB_LED         38      // RGB LED as a vital sign
+  #define MIDIRX_PIN      4       // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
+  #define MIDITX_PIN      9       // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
   #define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
   #define I2S_DOUT_PIN    6       // to I2S DATA IN pin (DIN D DAT) 
   #define I2S_WCLK_PIN    7       // I2S WORD CLOCK pin (WCK WCL LCK)
@@ -37,45 +44,6 @@ const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
 //#define MIDI_VIA_SERIAL       // use this option to enable Hairless MIDI on Serial port @115200 baud (USB connector), THIS WILL BLOCK SERIAL DEBUGGING as well
 #define MIDI_VIA_SERIAL2        // use this option if you want to operate by standard MIDI @31250baud, UART2 (Serial2), 
-
-const float exp_curve[128] = {
-0.0f,         0.001252428f, 0.002534793f, 0.003847810f, 0.005192213f, 0.006568752f, 0.007978195f, 0.009421327f, 
-0.010898955f, 0.012411904f, 0.013961017f, 0.015547158f, 0.017171214f, 0.018834090f, 0.020536713f, 0.022280036f, 
-0.024065029f, 0.025892689f, 0.027764037f, 0.029680116f, 0.031641995f, 0.033650769f, 0.035707560f, 0.037813515f, 
-0.039969809f, 0.042177646f, 0.044438257f, 0.046752904f, 0.049122878f, 0.051549503f, 0.054034132f, 0.056578151f, 
-0.059182981f, 0.061850075f, 0.064580921f, 0.067377043f, 0.070240002f, 0.073171395f, 0.076172857f, 0.079246065f, 
-0.082392732f, 0.085614614f, 0.088913510f, 0.092291261f, 0.095749750f, 0.099290909f, 0.102916713f, 0.106629185f, 
-0.110430398f, 0.114322472f, 0.118307580f, 0.122387944f, 0.126565842f, 0.130843606f, 0.135223623f, 0.139708335f, 
-0.144300248f, 0.149001921f, 0.153815981f, 0.158745111f, 0.163792065f, 0.168959656f, 0.174250770f, 0.179668359f, 
-0.185215446f, 0.190895127f, 0.196710570f, 0.202665021f, 0.208761803f, 0.215004318f, 0.221396050f, 0.227940564f, 
-0.234641514f, 0.241502639f, 0.248527766f, 0.255720817f, 0.263085806f, 0.270626841f, 0.278348132f, 0.286253987f, 
-0.294348818f, 0.302637142f, 0.311123583f, 0.319812878f, 0.328709875f, 0.337819540f, 0.347146955f, 0.356697326f, 
-0.366475982f, 0.376488380f, 0.386740107f, 0.397236883f, 0.407984566f, 0.418989154f, 0.430256788f, 0.441793755f, 
-0.453606493f, 0.465701593f, 0.478085806f, 0.490766042f, 0.503749377f, 0.517043056f, 0.530654498f, 0.544591297f, 
-0.558861231f, 0.573472262f, 0.588432545f, 0.603750428f, 0.619434458f, 0.635493387f, 0.651936177f, 0.668772004f, 
-0.686010261f, 0.703660569f, 0.721732777f, 0.740236969f, 0.759183472f, 0.778582858f, 0.798445952f, 0.818783840f, 
-0.839607869f, 0.860929660f, 0.882761111f, 0.905114405f, 0.928002016f, 0.951436715f, 0.975431580f, 1.0f
-};
-
-const float exp_curve_rev[128] = {
-1.0f,         0.975431580f, 0.951436715f, 0.928002016f, 0.905114405f, 0.882761111f, 0.860929660f, 0.839607869f, 
-0.818783840f, 0.798445952f, 0.778582858f, 0.759183472f, 0.740236969f, 0.721732777f, 0.703660569f, 0.686010261f, 
-0.668772004f, 0.651936177f, 0.635493387f, 0.619434458f, 0.603750428f, 0.588432545f, 0.573472262f, 0.558861231f, 
-0.544591297f, 0.530654498f, 0.517043056f, 0.503749377f, 0.490766042f, 0.478085806f, 0.465701593f, 0.453606493f, 
-0.441793755f, 0.430256788f, 0.418989154f, 0.407984566f, 0.397236883f, 0.386740107f, 0.376488380f, 0.366475982f, 
-0.356697326f, 0.347146955f, 0.337819540f, 0.328709875f, 0.319812878f, 0.311123583f, 0.302637142f, 0.294348818f, 
-0.286253987f, 0.278348132f, 0.270626841f, 0.263085806f, 0.255720817f, 0.248527766f, 0.241502639f, 0.234641514f, 
-0.227940564f, 0.221396050f, 0.215004318f, 0.208761803f, 0.202665021f, 0.196710570f, 0.190895127f, 0.185215446f, 
-0.179668359f, 0.174250770f, 0.168959656f, 0.163792065f, 0.158745111f, 0.153815981f, 0.149001921f, 0.144300248f, 
-0.139708335f, 0.135223623f, 0.130843606f, 0.126565842f, 0.122387944f, 0.118307580f, 0.114322472f, 0.110430398f, 
-0.106629185f, 0.102916713f, 0.099290909f, 0.095749750f, 0.092291261f, 0.088913510f, 0.085614614f, 0.082392732f, 
-0.079246065f, 0.076172857f, 0.073171395f, 0.070240002f, 0.067377043f, 0.064580921f, 0.061850075f, 0.059182981f, 
-0.056578151f, 0.054034132f, 0.051549503f, 0.049122878f, 0.046752904f, 0.044438257f, 0.042177646f, 0.039969809f, 
-0.037813515f, 0.035707560f, 0.033650769f, 0.031641995f, 0.029680116f, 0.027764037f, 0.025892689f, 0.024065029f, 
-0.022280036f, 0.020536713f, 0.018834090f, 0.017171214f, 0.015547158f, 0.013961017f, 0.012411904f, 0.010898955f, 
-0.009421327f, 0.007978195f, 0.006568752f, 0.005192213f, 0.003847810f, 0.002534793f, 0.001252428f, 0.0f
-};
-
 
 // 1.0594630943592952645618252949463 // is a 12th root of 2 (pitch increase per semitone)
 // 1.05952207969042122905182367802396 // stretched tuning (plus 60 cents per 7 octaves)
@@ -107,7 +75,7 @@ static __attribute__((always_inline)) inline float fast_semitones2speed(float se
 }
 
 static __attribute__((always_inline)) inline float fclamp(float in, float min, float max){
-    return fmin(fmax(in, min), max);
+  return fmin(fmax(in, min), max);
 }
 
 static __attribute__((always_inline)) inline float one_div(float a) {
@@ -153,3 +121,109 @@ int strpos(char *hay, char *needle, int offset)
   #define DEBF(...)
   #define DEBUG(...)
 #endif
+
+// lookup tables
+#define TABLE_BIT            5UL           // bits per index of lookup tables. 10 bit means 2^10 = 1024 samples. Values from 5 to 11 are OK. Choose the most appropriate.
+#define TABLE_SIZE            (1<<TABLE_BIT)        // samples used for lookup tables (it works pretty well down to 32 samples due to linear approximation, so listen and free some memory)
+#define TABLE_MASK          (TABLE_SIZE-1)        // strip MSB's and remain within our desired range of TABLE_SIZE
+#define DIV_TABLE_SIZE      (1.0f/(float)TABLE_SIZE)
+#define CYCLE_INDEX(i)        (((int32_t)(i)) & TABLE_MASK ) // this way we can operate with periodic functions or waveforms with auto-phase-reset ("if's" are pretty CPU-costly)
+#define SHAPER_LOOKUP_MAX     5.0f                  // maximum X argument value for tanh(X) lookup table, tanh(X)~=1 if X>4 
+#define SHAPER_LOOKUP_COEF    ((float)TABLE_SIZE / SHAPER_LOOKUP_MAX)
+#define TWOPI 6.2831853f
+#define ONE_DIV_TWOPI 0.159154943f 
+
+static const float sin_tbl[TABLE_SIZE+1] = {
+  0.000000000f,   0.195090322f,  0.382683432f,  0.555570233f,  0.707106781f,  0.831469612f,  0.923879533f,  0.980785280f,
+  1.000000000f,   0.980785280f,  0.923879533f,  0.831469612f,  0.707106781f,  0.555570233f,  0.382683432f,  0.195090322f, 
+  0.000000000f,  -0.195090322f, -0.382683432f, -0.555570233f, -0.707106781f, -0.831469612f, -0.923879533f, -0.980785280f, 
+  -1.000000000f, -0.980785280f, -0.923879533f, -0.831469612f, -0.707106781f, -0.555570233f, -0.382683432f, -0.195090322f, 0.000000000f };
+
+static const float shaper_tbl[TABLE_SIZE+1] {
+  0.000000000f, 0.154990730f, 0.302709729f, 0.437188785f, 0.554599722f, 0.653423588f, 0.734071520f, 0.798242755f, 
+  0.848283640f, 0.886695149f, 0.915824544f, 0.937712339f, 0.954045260f, 0.966170173f, 0.975136698f, 0.981748725f, 
+  0.986614298f, 0.990189189f, 0.992812795f, 0.994736652f, 0.996146531f, 0.997179283f, 0.997935538f, 0.998489189f, 
+  0.998894443f, 0.999191037f, 0.999408086f, 0.999566912f, 0.999683128f, 0.999768161f, 0.999830378f, 0.999875899f , 0.999909204f };
+
+inline float lookupTable(const float (&table)[TABLE_SIZE+1], float index ) { // lookup value in a table by float index, using linear interpolation
+  static float v1, v2, res;
+  static int32_t i;
+  static float f;
+  i = (int32_t)index;
+  f = (float)index - i;
+  v1 = (table)[i];
+  v2 = (table)[i+1];
+  res = (float)f * (float)(v2-v1) + v1;
+  return res;
+}
+
+inline float fast_shape(float x) {
+    float sign = 1.0f;
+    if (x < 0) {
+      x = -x;
+      sign = -1.0f;
+    }
+    if (x >= 4.95f) {
+      return sign; // tanh(x) ~= 1, when |x| > 4
+    }
+  return  sign * lookupTable(shaper_tbl, (x*SHAPER_LOOKUP_COEF)); // lookup table contains tanh(x), 0 <= x <= 5
+}
+
+inline void tend_to(float &x, const float &target, float rate) {
+  x = (float)x * (float)rate + (1.0f - (float)rate) * ((float)target - (float)x);
+}
+
+inline float fast_sin(const float x) {
+  const float argument = ((x * ONE_DIV_TWOPI) * TABLE_SIZE);
+  const float res = lookupTable(sin_tbl, CYCLE_INDEX(argument)+((float)argument-(int32_t)argument));
+  return res;
+}
+
+inline float fast_cos(const float x) {
+  const float argument = ((x * ONE_DIV_TWOPI + 0.25f) * TABLE_SIZE);
+  const float res = lookupTable(sin_tbl, CYCLE_INDEX(argument)+((float)argument-(int32_t)argument));
+  return res;
+}
+
+inline void fast_sincos(const float x, float* sinRes, float* cosRes){
+  *sinRes = fast_sin(x);
+  *cosRes = fast_cos(x);
+}
+
+// taken from here: https://www.esp32.com/viewtopic.php?t=10540#p43343
+// probably it's fixed already, so keep it here just in case
+inline float divsf(float a, float b) {
+    float result;
+    asm volatile (
+        "wfr f0, %1\n"
+        "wfr f1, %2\n"
+        "div0.s f3, f1 \n"
+        "nexp01.s f4, f1 \n"
+        "const.s f5, 1 \n"
+        "maddn.s f5, f4, f3 \n"
+        "mov.s f6, f3 \n"
+        "mov.s f7, f1 \n"
+        "nexp01.s f8, f0 \n"
+        "maddn.s f6, f5, f3 \n"
+        "const.s f5, 1 \n"
+        "const.s f2, 0 \n"
+        "neg.s f9, f8 \n"
+        "maddn.s f5,f4,f6 \n"
+        "maddn.s f2, f9, f3 \n" /* Original was "maddn.s f2, f0, f3 \n" */
+        "mkdadj.s f7, f0 \n"
+        "maddn.s f6,f5,f6 \n"
+        "maddn.s f9,f4,f2 \n"
+        "const.s f5, 1 \n"
+        "maddn.s f5,f4,f6 \n"
+        "maddn.s f2,f9,f6 \n"
+        "neg.s f9, f8 \n"
+        "maddn.s f6,f5,f6 \n"
+        "maddn.s f9,f4,f2 \n"
+        "addexpm.s f2, f7 \n"
+        "addexp.s f6, f7 \n"
+        "divn.s f2,f9,f6\n"
+        "rfr %0, f2\n"
+        :"=r"(result):"r"(a), "r"(b)
+    );
+    return result;
+}

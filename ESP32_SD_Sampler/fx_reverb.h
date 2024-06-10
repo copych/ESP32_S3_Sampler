@@ -120,7 +120,7 @@ class FxReverb {
           memset(allPassBuf2, 0, sizeof(float) * ALLPASS_BUF_LEN_2);
         }
         
-  		SetLevel( 0.4f );
+  		SetLevel( 1.0f );
   		SetTime( 0.5f );
   	}
 		

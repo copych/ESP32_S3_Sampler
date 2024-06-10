@@ -61,13 +61,13 @@ void SamplerEngine::parseIni() {
         break;
       case S_ENVELOPE:
         // attackTime = 0.0
-        if (tok == "ATTACKTIME" || tok == "ATTACK_TIME") {_attackTime = parseFloatValue(iniStr); continue;}
+        if (tok == "ATTACKTIME" || tok == "ATTACK_TIME") {_attackTime = parseFloatValue(iniStr); setAttackTime(_attackTime); continue;}
         // decayTime = 0.05
-        if (tok == "DECAYTIME" || tok == "DECAY_TIME") {_decayTime = parseFloatValue(iniStr); continue;}
+        if (tok == "DECAYTIME" || tok == "DECAY_TIME") {_decayTime = parseFloatValue(iniStr); setDecayTime(_decayTime); continue;}
         // releaseTime = 12.0
-        if (tok == "RELEASETIME" || tok == "RELEASE_TIME") {_releaseTime = parseFloatValue(iniStr); continue;}
+        if (tok == "RELEASETIME" || tok == "RELEASE_TIME") {_releaseTime = parseFloatValue(iniStr); setReleaseTime(_releaseTime); continue;}
         // sustainLevel = 1.0
-        if (tok == "SUSTAINLEVEL" || tok == "SUSTAIN_LEVEL") {_sustainLevel = parseFloatValue(iniStr); continue;}
+        if (tok == "SUSTAINLEVEL" || tok == "SUSTAIN_LEVEL") {_sustainLevel = parseFloatValue(iniStr); setSustainLevel(_sustainLevel); continue;}
         break;
       case S_NOTE:
       case S_RANGE:
@@ -211,12 +211,12 @@ eInstr_t SamplerEngine::parseInstrType(str256_t& val) {
 void SamplerEngine::applyRange(ini_range_t& range) {
   _ranges.push_back(range);
   for (int i=range.first; i<=range.last; i++) {
-    _keyboard[i].noteoff = range.noteoff;
-    _keyboard[i].tuning = range.speed;    
-    _keyboard[i].attack_time = range.attack_time;
-    _keyboard[i].decay_time = range.decay_time;
-    _keyboard[i].sustain_level = range.sustain_level;
-    _keyboard[i].release_time = range.release_time;
+    _keyboard[i].noteoff        = range.noteoff;
+    _keyboard[i].tuning         = range.speed;    
+    _keyboard[i].attack_time    = range.attack_time;
+    _keyboard[i].decay_time     = range.decay_time;
+    _keyboard[i].sustain_level  = range.sustain_level;
+    _keyboard[i].release_time   = range.release_time;
   }
   DEBF("INI: adding range for %s\r\n", range.instr.c_str());
 }
@@ -255,6 +255,11 @@ bool SamplerEngine::parseFilenameTemplate(str256_t& line) {
           item.item_str = "";
           _template.push_back(item);
       }
+      else if (str == "MIDI" ) {
+          item.item_type = P_MIDINOTE;
+          item.item_str = "";
+          _template.push_back(item);
+      }
       else if (str == "OCTA" ) {
           item.item_type = P_OCTAVE;
           item.item_str = "";
@@ -285,15 +290,16 @@ void SamplerEngine::processNameParser(entry_t* entry) {
   int oct = -2;
   int velo = 0;
   int note_num = -1;
+  int midi_note_num = -1;
   std::vector<int> rng_i; // affected indices
   int match_weight = 0;
   str20_t instr = "";
-  str8_t s;
+  str20_t s;
   sample_t smp;
   fname_t fname = entry->name;
   fname.toUpperCase();
   if (fname.endsWith(".WAV")) {
-    DEBF("Parsing name: <%s>\r\n", fname.c_str());
+    //DEBF("Parsing name: <%s>\r\n", fname.c_str());
   } else {
     DEBF("Skipping name: <%s>\r\n", fname.c_str());
     return;
@@ -320,7 +326,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
         else {
           DEBF("Failed to determine note name in <%s>\r\n", fname.c_str());
         }
-//        DEBF("Note: %s\r\n", notes[0][note_num].c_str());
+      //  DEBF("Note: %s\r\n", notes[0][note_num].c_str());
         break;
       case P_NUMBER:
         s = "";
@@ -333,6 +339,19 @@ void SamplerEngine::processNameParser(entry_t* entry) {
             break;
           }
         }
+        break;
+      case P_MIDINOTE:
+        s = "";
+        while (true) {
+          if (fname.charAt(pos) >='0' && fname.charAt(pos) <='9' ) {
+            s += fname.charAt(pos);
+            pos++;
+          } else {
+            break;
+          }
+        }
+        //DEBF("Midi Note Number: %s\r\n", s.c_str());
+        if (s>"") midi_note_num = s.toInt();
         break;
       case P_INSTRUMENT: {
        // DEBUG("Filename: Parsing P_INSTRUMENT");
@@ -398,20 +417,24 @@ void SamplerEngine::processNameParser(entry_t* entry) {
         //impossible:
       break;
     }
-  }  
+  }
 // if we have note name in filename
   if (note_num>=0 && oct>=-1) {
-    note_num += (oct+1)*12; // midi note number
+    midi_note_num = note_num + (oct+1)*12; // midi note number
+  }  
+  if (midi_note_num>=0) {
     if ( velo >= 0 ) {
       sample_t smp;
       smp.orig_velo_layer = velo;
       smp.sectors = entry->sectors;
       smp.size = entry->size;
-//      smp.name = (entry->name);
+      smp.native_freq = true;
+      // smp.name = (entry->name);
       parseWavHeader(entry, smp);
-      _sampleMap[note_num][velo] = smp;
+      _sampleMap[midi_note_num][velo] = smp;
     }
   }
+
 // if we have [ranges] or [notes] in ini
   if ( !rng_i.empty() ) {
     if (velo < 0) velo = 0;
@@ -421,7 +444,8 @@ void SamplerEngine::processNameParser(entry_t* entry) {
         smp.orig_velo_layer = velo;
         smp.sectors = entry->sectors;
         smp.size = entry->size;
-  //      smp.name = (entry->name);
+        smp.native_freq = true;
+        // smp.name = (entry->name);
         parseWavHeader(entry, smp);
         _sampleMap[midi_note][velo] = smp;
       }
@@ -499,7 +523,7 @@ void SamplerEngine::finalizeMapping() {
       for (int i = 0; i < _veloLayers; i++) {
         // going up
         for (int j = 0; j < 128; j++) {
-          if (_sampleMap[j][i].speed == 0.0) {
+          if (_sampleMap[j][i].speed == 0.0f) {
             // search in _sampleMap by spiral
             s = -1;
             x = j;
@@ -512,9 +536,10 @@ void SamplerEngine::finalizeMapping() {
                 y += dy;
                 xc = constrain(x, 0, 127);
                 yc = mapVelo(constrain(y, 0, 127));
-                if (_sampleMap[xc][yc].speed > 0.0 ) {
+                if (_sampleMap[xc][yc].speed > 0.0f ) {
                   _sampleMap[j][i] = _sampleMap[xc][yc];
                   _sampleMap[j][i].speed = _sampleMap[xc][yc].speed * _keyboard[j].freq / _keyboard[x].freq;
+                  _sampleMap[j][i].native_freq = false;
                   break;  
                 }
               }        
@@ -526,9 +551,10 @@ void SamplerEngine::finalizeMapping() {
                 y += dy;
                 xc = constrain(x, 0, 127);
                 yc = mapVelo(constrain(y, 0, 127));
-                if (_sampleMap[xc][yc].speed == 1.0) {
+                if (_sampleMap[xc][yc].native_freq) {
                   _sampleMap[j][i] = _sampleMap[xc][yc];
-                  _sampleMap[j][i].speed = _keyboard[j].freq / _keyboard[x].freq;
+                  _sampleMap[j][i].speed = _sampleMap[xc][yc].speed * _keyboard[j].freq / _keyboard[x].freq;
+                  _sampleMap[j][i].native_freq = false;
                   break;  
                 }
               } 
@@ -538,10 +564,11 @@ void SamplerEngine::finalizeMapping() {
       }
       // VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER
   }
-  // propagate envelopes to individual samples
+  // propagate params to individual samples
   for (int i = 0; i < _veloLayers; i++) {
     for (int j = 0 ; j < 128; j++ ) {
       _sampleMap[j][i].speed         *= _keyboard[j].tuning;
+      _sampleMap[j][i].amp           *= _amp;
       _sampleMap[j][i].attack_time    = _keyboard[j].attack_time;
       _sampleMap[j][i].decay_time     = _keyboard[j].decay_time;
       _sampleMap[j][i].sustain_level  = _keyboard[j].sustain_level;
@@ -585,7 +612,7 @@ void SamplerEngine::printMapping() {
   for (int i = 0; i < _veloLayers; i++) {
     for (int j = 0 ; j<128; j++ ) {
       if (!_sampleMap[j][i].sectors.empty()) {
-        DEBF("%lu\t", _sampleMap[j][i].bit_depth );
+        DEBF("%d %3.2f\t",_sampleMap[j][i].native_freq, _sampleMap[j][i].speed );
       //  DEBF("%s\t", _sampleMap[j][i].name.c_str() );
       } else {        
         DEBF( "%d\t", 0 );

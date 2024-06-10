@@ -7,7 +7,6 @@
 const int   BUF_SIZE_BYTES      = (READ_BUF_SECTORS * BYTES_PER_SECTOR);
 const float DIV_BUF_SIZE_BYTES  = (1.0f / BUF_SIZE_BYTES);
 const int   INTS_PER_SECTOR     = (BYTES_PER_SECTOR / 2);
-const float MIDI_NORM           = (1.0f / 127.0f);
 const int   start_byte[5]       = { 0, 0, 0, 1, 2 }; // offset values for [-], 8, 16, 24, 32 pcm bits per channel 
 
 #include "adsr.h"
@@ -47,6 +46,7 @@ typedef struct {
   int       loop_mode     = 0; // 0 = none,  1 = forward
   int32_t   loop_first_smp= -1;
   int32_t   loop_last_smp = -1;
+  bool      native_freq   = false;
   // FixedString<4>    name; // only used in SamplerEngine::printMapping()
   std::vector<chain_t>   sectors;
 } sample_t;
@@ -62,8 +62,9 @@ class Voice {
     void              start(const sample_t nextSmp, uint8_t nextNote, uint8_t nextVelo);
     void              end(Adsr::eEnd_t);
     void              fadeOut();
-    void              feed();
+    inline void              feed();
     inline uint32_t   hunger();
+    inline void       setStarted(bool st)   {_started = st;}
     inline void       setPressed(bool pr)   {_pressed = pr;}
     inline int        getChannels()   {return _sampleFile.channels;}
     inline bool       isActive()      {return _active;}
@@ -76,6 +77,11 @@ class Voice {
     inline int        getPlayPos()    {return _bufPosSmp[_idToPlay];}
     inline uint32_t   getBufSize()    {return _bufSizeSmp;}
     inline void       toggleBuf();
+    inline void       setAttackTime(float timeInS) {AmpEnv.setAttackTime(timeInS, 0.0f);}
+    inline void       setDecayTime(float timeInS) {AmpEnv.setDecayTime(timeInS);}
+    inline void       setReleaseTime(float timeInS) {AmpEnv.setReleaseTime(timeInS);}
+    inline void       setSustainLevel(float normLevel) {AmpEnv.setSustainLevel(normLevel);}
+    int my_id =0;
     
   private:
   // some members are volatile because they are used in different tasks on both cores, while real-time conditions require immediate changes without caching 
@@ -85,6 +91,7 @@ class Voice {
     volatile float      _amp                    = 1.0f;
     volatile bool       _active                 = false;
     volatile bool       _dying                  = false;
+    volatile bool       _started                = false;
     volatile uint8_t*   _buffer0;               // pointer to the 1st allocated SD-reader buffer
     volatile uint8_t*   _buffer1;               // pointer to the 2nd allocated SD-reader buffer
     volatile uint8_t*   _playBuffer;            // pointer to the buffer which is being played (one of the two toggling buffers)
@@ -100,6 +107,7 @@ class Voice {
     volatile int        _pL1, _pL2, _pR1, _pR2  ;
     volatile int        _samplesInFillBuf       = 0;
     volatile int        _samplesInPlayBuf       = 0;
+    volatile int        _posSmp                 = 0;      // global position in terms of samples
     volatile int        _bufPosSmp[2]           = {0, 0}; // sample pos, it depends on the number of channels and bit depth of a wav file assigned to this voice;
     float               _bufPosSmpF             = 0.0;    // exact calculated sample reading position including speed, pitchbend etc. 
     volatile bool       _bufEmpty[2]            = {true, true};
@@ -110,15 +118,13 @@ class Voice {
     volatile int        _idToPlay               = 1;
     uint8_t             _midiNote               = 0;
     uint8_t             _midiVelo               = 0; 
-    uint8_t             _nextNote               = 0;
-    uint8_t             _nextVelo               = 0;
-    volatile bool       _queued                 = false;     
+    //volatile bool       _queued                 = false;     
     float               _speed                  = 1.0;    // _speed param corrects the central freq of a sample 
     float               _speedModifier          = 1.0;    // pitchbend, portamento etc. 
-    uint32_t            _lastSectorRead         = 0;      // last sector that was read during this sample playback
-    uint32_t            _curChain               = 0;      // current chain (linear non-fragmented segment of a sample file) index
-    uint32_t            _bufPlayed              = 0;      // number of buffers played (for float correction)
-    uint32_t            _coarseBytesPlayed      = 0;
+    volatile uint32_t   _lastSectorRead         = 0;      // last sector that was read during this sample playback
+    volatile uint32_t   _curChain               = 0;      // current chain (linear non-fragmented segment of a sample file) index
+    volatile uint32_t   _bufPlayed              = 0;      // number of buffers played (for float correction)
+    volatile uint32_t   _coarseBytesPlayed      = 0;
     volatile uint32_t   _bytesPlayed            = 0;
     volatile float      _amplitude              = 0.0;
     volatile bool       _pressed                = false;
@@ -131,8 +137,8 @@ class Voice {
     uint32_t            _loopLastSmp            = 0;
     uint32_t            _loopFirstSector        = 0;
     uint32_t            _loopLastSector         = 0;
-    sample_t            _sampleFile             ;
-    sample_t            _nextFile               ;
     int                 _lowest                 = 1;
     Adsr                AmpEnv                  ;
+    sample_t            _sampleFile             ;
+   // sample_t            _nextFile               ;
 };
