@@ -136,9 +136,11 @@ void Voice::getSample(float& sampleL, float& sampleR) {
   static float env;
   static int bufPosBytes;
   float l1, l2, r1, r2;
-  sampleL = sampleR = 0.0f;
-  if (_bufEmpty[0] && _bufEmpty[1]) return;
-  if (_active) {
+  sampleL = 0.0f; 
+  sampleR = 0.0f;
+  if (!_active || (_bufEmpty[0] && _bufEmpty[1])) {
+    return;
+  } else {
     env =  (float)AmpEnv.process() * (float)_amp ;
    //  env = _amp;
     if (AmpEnv.isIdle()) {      
