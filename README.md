@@ -19,9 +19,16 @@ It's possible to rearrange classes in order to allocate members dynamically, and
 * If you want to use RGB LEDs, then also FastLED library is needed https://github.com/FastLED/FastLED
 
 # Polyphony
-With the microSD cards that I have, the current setting is 19 stereo voices. I now set 8 sectors per read, which gives approx. 5 MB/s reading speed. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need. In theory, 5 MB/s at 44100 Hz 16 bit stereo should give 29 voices polyphony, so there is probably a room to improve to get more simultaneous voices. But the limitation can also be caused by the computing power and by the internal cache performance.
+The maximum number of simultaneously sounding voices mainly depends on the following four factors:
+* SD card tech specs
+* The size of the allocated per-voice buffers (fast internal RAM required, which is also used by main program and audio effects)
+* Required data rate (it depends on sample rates, number of channels and bit depths of both output bus and the sample files)
+* CPU and memory performance (in fact, the low-level memory caching routines seem to be the bottleneck for now)
+Each of the mentioned parameters has it's own limitations and even more, they are partly compete for the same resources. So the choosen configuration is always a compromise.
 
-PS. Of what I have tested, faster cards won't give you dramatical improvement in the matter of polyphony. I have tried a newer microSD which reads 8 sectors random blocks at apx. 7 MB/s, but only 20 voices I have managed to run.
+With the microSD cards that I have, my current setting is 17 stereo voices. I now set 7 sectors per read, which gives approx. 5 MB/s reading speed. Combined limitation is per-voice buffer size (i.e. how many sectors we read from the SD per request). The more the size, the more the speed. But the more the size, the more memory we need. In theory, 5 MB/s at 44100 Hz 16 bit stereo should give 29 voices polyphony, so there is probably a room to improve to get more simultaneous voices. But the limitation can also be caused by the computing power and by the internal cache performance.
+
+PS. Of what I have tested, faster cards won't give you dramatical improvement in the matter of polyphony. I have tried a newer microSD which reads 8 sectors random blocks at apx. 7 MB/s, but only 20 voices I have managed to run at MAX.
 
 # Velocity layers
 There are currently 16 velocity layers (i.e. dynamic variants of each sampled note) which corresponds to the maximum count that I have found (https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html).
