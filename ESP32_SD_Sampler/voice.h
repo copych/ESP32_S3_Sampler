@@ -57,7 +57,6 @@ class Voice {
     void              init(SDMMC_FAT32* Card, bool* sustain, bool* normalized);
     bool              allocateBuffers();
     void              getSample(float& L, float& R);
-    inline void       getFadeSample(volatile float& L, volatile float& R);
     inline float      interpolate(float& s1, float& s2, float i);
     void              start(const sample_t nextSmp, uint8_t nextNote, uint8_t nextVelo);
     void              end(Adsr::eEnd_t);
@@ -67,7 +66,7 @@ class Voice {
     inline void       setStarted(bool st)   {_started = st;}
     inline void       setPressed(bool pr)   {_pressed = pr;}
     inline int        getChannels()   {return _sampleFile.channels;}
-    inline bool       isActive()      {return _active;}
+    inline bool       isActive()      {return _active==1;}
     inline bool       isDying()       {return _dying;}
     inline uint8_t    getMidiNote()   {return _midiNote;}
     inline uint8_t    getMidiVelo()   {return _midiVelo;}
@@ -89,7 +88,8 @@ class Voice {
     bool*               _sustain                ; // every voice needs to know if sustain is ON. 
     bool*               _normalized             ;
     volatile float      _amp                    = 1.0f;
-    volatile bool       _active                 = false;
+    
+    int       _active                 = 0;
     volatile bool       _dying                  = false;
     volatile bool       _started                = false;
     volatile uint8_t*   _buffer0;               // pointer to the 1st allocated SD-reader buffer
@@ -109,24 +109,24 @@ class Voice {
     volatile int        _samplesInPlayBuf       = 0;
     volatile int        _posSmp                 = 0;      // global position in terms of samples
     volatile int        _bufPosSmp[2]           = {0, 0}; // sample pos, it depends on the number of channels and bit depth of a wav file assigned to this voice;
-    float               _bufPosSmpF             = 0.0;    // exact calculated sample reading position including speed, pitchbend etc. 
-    volatile bool       _bufEmpty[2]            = {true, true};
+    float               _bufPosSmpF             = 0.0f;    // exact calculated sample reading position including speed, pitchbend etc. 
+     bool       _bufEmpty[2]            = {true, true};
     uint32_t            _fullSampleBytes        = 4;      // bytes
-    float               _divFileSize            = 0.001;
+    float               _divFileSize            = 0.001f;
     float               _divVelo                = 0;
     volatile int        _idToFill               = 0;      // tic-tac buffer id
     volatile int        _idToPlay               = 1;
     uint8_t             _midiNote               = 0;
     uint8_t             _midiVelo               = 0; 
     //volatile bool       _queued                 = false;     
-    float               _speed                  = 1.0;    // _speed param corrects the central freq of a sample 
-    float               _speedModifier          = 1.0;    // pitchbend, portamento etc. 
+    float               _speed                  = 1.0f;    // _speed param corrects the central freq of a sample 
+    float               _speedModifier          = 1.0f;    // pitchbend, portamento etc. 
     volatile uint32_t   _lastSectorRead         = 0;      // last sector that was read during this sample playback
     volatile uint32_t   _curChain               = 0;      // current chain (linear non-fragmented segment of a sample file) index
     volatile uint32_t   _bufPlayed              = 0;      // number of buffers played (for float correction)
     volatile uint32_t   _coarseBytesPlayed      = 0;
     volatile uint32_t   _bytesPlayed            = 0;
-    volatile float      _amplitude              = 0.0;
+    volatile float      _amplitude              = 0.0f;
     volatile bool       _pressed                = false;
     volatile bool       _eof                    = true;
     volatile float      _killScoreCoef          = 1.0f;

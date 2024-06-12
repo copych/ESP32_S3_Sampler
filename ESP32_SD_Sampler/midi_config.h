@@ -1,5 +1,4 @@
 #pragma once
-#define RECEIVE_MIDI_CHAN   1
 
 // Global 
 

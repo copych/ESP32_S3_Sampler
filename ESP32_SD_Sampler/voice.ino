@@ -25,7 +25,7 @@ void Voice::init(SDMMC_FAT32* Card, bool* sustain, bool* normalized){
   }
   AmpEnv.init(SAMPLE_RATE);
   AmpEnv.end(Adsr::END_NOW);
-  _active   = false;
+  _active   = 0;
   _midiNote = 255;
   _pressed  = false;
   _eof      = true;
@@ -33,7 +33,7 @@ void Voice::init(SDMMC_FAT32* Card, bool* sustain, bool* normalized){
 
 
 // If the voice is free, it sets the new sample to play
-// If the voice is active, it queues a new sample and calls ADSR.end(END_FAST) which fades really fast (8 samples or so)
+ 
 void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo) { // executed in Control Task (Core1)
     _sampleFile             = smpFile;
     _bytesToRead            = smpFile.size;
@@ -100,7 +100,7 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo) { 
     _hungerCoef = (float)_fullSampleBytes * (float)_speed;
  //    DEBF("VOICE %d: START note %d velo %d offset %d\r\n", my_id, midiNote, midiVelo, smpFile.byte_offset);
     AmpEnv.retrigger(Adsr::END_NOW);
-    _active = true;
+    _active = 1;
     _dying = false;
     _pressed = true;
 }
@@ -111,7 +111,7 @@ void Voice::end(Adsr::eEnd_t end_type){ // most likely being executed in Control
     case Adsr::END_NOW:{
       AmpEnv.end(Adsr::END_NOW);
  //     DEBF("VOICE %d: END: NOW midi note %d\r\n", my_id, _midiNote); 
-      _active = false;
+      _active = 0;
       _midiNote = 255;
       _amplitude = 0.0;
       break;
@@ -133,18 +133,19 @@ void Voice::end(Adsr::eEnd_t end_type){ // most likely being executed in Control
 }
 
 void Voice::getSample(float& sampleL, float& sampleR) {
-  static float env;
-  static int bufPosBytes;
+  float env;
+  int bufPosBytes;
   float l1, l2, r1, r2;
   sampleL = 0.0f; 
   sampleR = 0.0f;
-  if (!_active || (_bufEmpty[0] && _bufEmpty[1])) {
+  if (_active==0 ) return;
+  if (_bufEmpty[0] && _bufEmpty[1]) {
     return;
   } else {
     env =  (float)AmpEnv.process() * (float)_amp ;
    //  env = _amp;
     if (AmpEnv.isIdle()) {      
-      _active = false;
+      _active = 0;
       _dying = false;
       _midiNote = 255;
       _amplitude = 0.0f;
@@ -269,13 +270,13 @@ inline void Voice::toggleBuf(){
   int filePosBytes = (int)((int)_bufPlayed * (int)BUF_SIZE_BYTES) + (int)_playBufOffset + (int)((int)_bufPosSmp[_idToPlay] * (int)_fullSampleBytes);
   _bufPlayed++;
   _coarseBytesPlayed = (int)((int)BUF_SIZE_BYTES * (int)_bufPlayed);
-  _playBufOffset = filePosBytes - _coarseBytesPlayed;
+  _playBufOffset =  (int)filePosBytes -  (int)_coarseBytesPlayed;
   _bufEmpty[_idToPlay ] = true;
   _bufPosSmpF -= (float)_bufPosSmp[_idToPlay];
   _bufPosSmp[_idToFill]   = _bufPosSmpF;
   _bytesPlayed = (int)filePosBytes - (int)_sampleFile.byte_offset ;
   _playBufOffset = (int)filePosBytes - (int)_coarseBytesPlayed;
-  _samplesInPlayBuf = (BUF_SIZE_BYTES - _playBufOffset) / _fullSampleBytes ;
+  _samplesInPlayBuf = ( (int)BUF_SIZE_BYTES -  (int)_playBufOffset) /  (int)_fullSampleBytes ;
  // DEBF("VOICE %d: TOGGLE: pos: %d, inBuf: %d, off: %d, BPlyd: %d, ampl %f lastSec %d \r\n", my_id, _bufPosSmp[_idToPlay ], _samplesInPlayBuf, _playBufOffset, _bytesPlayed, _amplitude, _lastSectorRead );
   switch(_idToPlay ) { 
     case 0:
@@ -298,7 +299,10 @@ inline void Voice::toggleBuf(){
 
 
 uint32_t Voice::hunger() { // called by SamplerEngine::fillBuffer() in ControlTast, Core1
-    if (!_active || _eof || _dying || (!_bufEmpty[0] && !_bufEmpty[1])) return 0;
+    if (_active==0) return 0;
+    if ( _eof) return 0;
+    if ( _dying) return 0;
+    if (!_bufEmpty[0] && !_bufEmpty[1]) return 0;
     return (/*(float)_speedModifier * */(float)_hungerCoef * ((float)_bufPosSmp[0] + (float)_bufPosSmp[1])); // the bigger the value, the sooner we empty the buffer
 }
 

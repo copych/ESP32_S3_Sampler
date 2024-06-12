@@ -1,53 +1,42 @@
 #pragma once
 
-//#define DEBUG_ON
-//#define DEBUG_CORE_TIME
-
-
-#define INI_FILE "sampler.ini"
-
-
-#define SACRIFY_VOICES        1          // voices used for smooth transisions to avoid clicks
-
-#define DMA_NUM_BUF 2
-#define DMA_BUF_LEN 32
-#define READ_BUF_SECTORS 7      // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
-#define FASTLED_INTERNAL        // remove annoying pragma messages
+#define DMA_NUM_BUF 2                     // number of I2S buffers, 2 should be enough
+#define DMA_BUF_LEN 32                    // length of I2S buffers use 8 samples or more
+#define FASTLED_INTERNAL                  // remove annoying pragma messages
 
 const float MIDI_NORM           = (1.0f / 127.0f);
-
-#define SAMPLE_RATE 44100
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
-
-//#define C_MAJOR_ON_START             // play C major chord on startup (testing)
-
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-//  #define RGB_LED         38      // RGB LED as a vital sign
-  #define MIDIRX_PIN      4       // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
-  #define MIDITX_PIN      9       // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
-  #define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
-  #define I2S_DOUT_PIN    6       // to I2S DATA IN pin (DIN D DAT) 
-  #define I2S_WCLK_PIN    7       // I2S WORD CLOCK pin (WCK WCL LCK)
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-  #define MIDIRX_PIN      22      // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
-  #define MIDITX_PIN      23      // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
-  #define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
-  #define I2S_DOUT_PIN    18      // to I2S DATA IN pin (DIN D DAT) 
-  #define I2S_WCLK_PIN    19      // I2S WORD CLOCK pin (WCK WCL LCK)  
-#endif
-
-#ifdef ARDUINO_USB_CDC_ON_BOOT
-  #define SERIAL_PORT Serial
-#else
-  #define SERIAL_PORT USBSerial
-#endif
-
-//#define MIDI_VIA_SERIAL       // use this option to enable Hairless MIDI on Serial port @115200 baud (USB connector), THIS WILL BLOCK SERIAL DEBUGGING as well
-#define MIDI_VIA_SERIAL2        // use this option if you want to operate by standard MIDI @31250baud, UART2 (Serial2), 
 
 // 1.0594630943592952645618252949463 // is a 12th root of 2 (pitch increase per semitone)
 // 1.05952207969042122905182367802396 // stretched tuning (plus 60 cents per 7 octaves)
 // converts semitones to speed: -12.0 semitones becomes 0.5, +12.0 semitones becomes 2.0
+
+#ifdef MIDI_VIA_SERIAL
+  #undef DEBUG_ON
+#endif
+
+// debug macros
+#ifdef DEBUG_ON
+  #define DEB(...) USBSerial.print(__VA_ARGS__) 
+  #define DEBF(...)  USBSerial.printf(__VA_ARGS__)
+  #define DEBUG(...) USBSerial.println(__VA_ARGS__)
+#else
+  #define DEB(...)
+  #define DEBF(...)
+  #define DEBUG(...)
+#endif
+
+// lookup tables
+#define TABLE_BIT            5UL           // bits per index of lookup tables. 10 bit means 2^10 = 1024 samples. Values from 5 to 11 are OK. Choose the most appropriate.
+#define TABLE_SIZE            (1<<TABLE_BIT)        // samples used for lookup tables (it works pretty well down to 32 samples due to linear approximation, so listen and free some memory)
+#define TABLE_MASK          (TABLE_SIZE-1)        // strip MSB's and remain within our desired range of TABLE_SIZE
+#define DIV_TABLE_SIZE      (1.0f/(float)TABLE_SIZE)
+#define CYCLE_INDEX(i)        (((int32_t)(i)) & TABLE_MASK ) // this way we can operate with periodic functions or waveforms with auto-phase-reset ("if's" are pretty CPU-costly)
+#define SHAPER_LOOKUP_MAX     5.0f                  // maximum X argument value for tanh(X) lookup table, tanh(X)~=1 if X>4 
+#define SHAPER_LOOKUP_COEF    ((float)TABLE_SIZE / SHAPER_LOOKUP_MAX)
+#define TWOPI 6.2831853f
+#define ONE_DIV_TWOPI 0.159154943f 
+
 static __attribute__((always_inline)) inline float semitones2speed(float semitones) {
  // return powf(2.0f, semitones * 0.08333333f);
   return powf(1.059463f, semitones);
@@ -107,31 +96,7 @@ int strpos(char *hay, char *needle, int offset)
    return -1;
 }
 
-#ifdef MIDI_VIA_SERIAL
-  #undef DEBUG_ON
-#endif
 
-// debug macros
-#ifdef DEBUG_ON
-  #define DEB(...) USBSerial.print(__VA_ARGS__) 
-  #define DEBF(...)  USBSerial.printf(__VA_ARGS__)
-  #define DEBUG(...) USBSerial.println(__VA_ARGS__)
-#else
-  #define DEB(...)
-  #define DEBF(...)
-  #define DEBUG(...)
-#endif
-
-// lookup tables
-#define TABLE_BIT            5UL           // bits per index of lookup tables. 10 bit means 2^10 = 1024 samples. Values from 5 to 11 are OK. Choose the most appropriate.
-#define TABLE_SIZE            (1<<TABLE_BIT)        // samples used for lookup tables (it works pretty well down to 32 samples due to linear approximation, so listen and free some memory)
-#define TABLE_MASK          (TABLE_SIZE-1)        // strip MSB's and remain within our desired range of TABLE_SIZE
-#define DIV_TABLE_SIZE      (1.0f/(float)TABLE_SIZE)
-#define CYCLE_INDEX(i)        (((int32_t)(i)) & TABLE_MASK ) // this way we can operate with periodic functions or waveforms with auto-phase-reset ("if's" are pretty CPU-costly)
-#define SHAPER_LOOKUP_MAX     5.0f                  // maximum X argument value for tanh(X) lookup table, tanh(X)~=1 if X>4 
-#define SHAPER_LOOKUP_COEF    ((float)TABLE_SIZE / SHAPER_LOOKUP_MAX)
-#define TWOPI 6.2831853f
-#define ONE_DIV_TWOPI 0.159154943f 
 
 static const float sin_tbl[TABLE_SIZE+1] = {
   0.000000000f,   0.195090322f,  0.382683432f,  0.555570233f,  0.707106781f,  0.831469612f,  0.923879533f,  0.980785280f,

@@ -46,7 +46,7 @@ void i2sDeinit() {
 
 
 
-static inline void IRAM_ATTR i2s_output () {
+static void i2s_output () {
 // now out_buf is ready, output
 size_t bytes_written;
 
@@ -55,8 +55,7 @@ size_t bytes_written;
     out_buf[out_buf_id][i*2] = (float)0x7fff * mix_buf_l[out_buf_id][i]; 
     out_buf[out_buf_id][i*2+1] = (float)0x7fff * mix_buf_r[out_buf_id][i];
    // if (i%4==0) DEBUG(out_buf[out_buf_id][i*2]);
-   
-   //if (out_buf[out_buf_id][i*2]) DEBF(" %d\r\n ", out_buf[out_buf_id][i*2]);
+   // if (out_buf[out_buf_id][i*2]) DEBF(" %d\r\n ", out_buf[out_buf_id][i*2]);
   }
   i2s_write(i2s_num, out_buf[out_buf_id], sizeof(out_buf[out_buf_id]), &bytes_written, portMAX_DELAY);
 
@@ -83,7 +82,7 @@ void i2sDeinit() {
   I2S.end();
 }
 
-static inline void i2s_output () {
+static void i2s_output () {
 // now out_buf is ready, output
   for (int i=0; i < DMA_BUF_LEN; i++) {
     out_buf[out_buf_id][i*2] = (float)0x7fff * mix_buf_l[out_buf_id][i]; 
@@ -98,15 +97,15 @@ static inline void i2s_output () {
 #endif
 
 
-static inline void mixer() { // sum buffers 
+static void mixer() { // sum buffers 
 #ifdef DEBUG_MASTER_OUT
-  static float meter = 0.0f;
+  float meter = 0.0f;
 #endif
-  static const float attenuator = 0.5f;
-  static float sampler_out_l, sampler_out_r;
-  static float mono_mix;
-  static float dly_l, dly_r;
-  static float rvb_l, rvb_r;
+  const float attenuator = 0.5f;
+  float sampler_out_l, sampler_out_r;
+  float mono_mix;
+  float dly_l, dly_r;
+  float rvb_l, rvb_r;
   
     for (int i=0; i < DMA_BUF_LEN; i++) {
       
@@ -164,9 +163,8 @@ static inline void mixer() { // sum buffers
 #endif
 }
 
-static inline void sampler_generate_buf() {
-
-  for (int i=0; i < DMA_BUF_LEN; i++){
+static void  sampler_generate_buf() {
+  for (uint32_t i=0; i < DMA_BUF_LEN; i++){
     Sampler.getSample(sampler_l[gen_buf_id][i], sampler_r[gen_buf_id][i]) ;
   }
 }

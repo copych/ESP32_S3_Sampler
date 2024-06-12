@@ -22,6 +22,7 @@
 */
 
 #include <Arduino.h>
+#include "config.h"
 #include "misc.h"
 #include "sdmmc.h"
 #include <vector>
@@ -73,19 +74,19 @@ FxReverb        Reverb;
 // =============================================================== GLOBALS ===============================================================
 TaskHandle_t SynthTask;
 TaskHandle_t ControlTask;
-volatile int out_buf_id = 0;
-volatile int gen_buf_id = 1;
-static float sampler_l[2][DMA_BUF_LEN];     // sampler L buffer
-static float sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
-static float mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
-static float mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
-int16_t out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
+static int DRAM_ATTR out_buf_id = 0;
+static int DRAM_ATTR gen_buf_id = 1;
+static float DRAM_ATTR sampler_l[2][DMA_BUF_LEN];     // sampler L buffer
+static float DRAM_ATTR sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
+static float DRAM_ATTR mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
+static float DRAM_ATTR mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
+static int16_t DRAM_ATTR out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
 
 
 // =============================================================== forward declarations ===============================================================
-static inline void IRAM_ATTR mixer() ;
-static inline void IRAM_ATTR i2s_output ();
-static inline void IRAM_ATTR sampler_generate_buf();
+static  void IRAM_ATTR mixer() ;
+static  void IRAM_ATTR i2s_output ();
+static  void IRAM_ATTR sampler_generate_buf();
 
 // =============================================================== PER CORE TASKS ===============================================================
 static void IRAM_ATTR audio_task(void *userData) { // core 0 task
@@ -149,7 +150,7 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
   }
 }
  
-static void  control_task(void *userData) { // core 1 task
+static void  IRAM_ATTR control_task(void *userData) { // core 1 task
   DEBUG ("core 1 control task run");
   vTaskDelay(20);
   static uint32_t passby = 0;
@@ -161,7 +162,6 @@ static void  control_task(void *userData) { // core 1 task
     
     Sampler.fillBuffer();
 
-
     #ifdef MIDI_VIA_SERIAL
       MIDI.read();
     #endif
@@ -170,17 +170,21 @@ static void  control_task(void *userData) { // core 1 task
       MIDI2.read();
     #endif
     
-    taskYIELD();
+    passby++;
 
-    #ifdef RGB_LED
-    leds[0].setHue(Sampler.getActiveVoices()*30); 
-    FastLED.show();
-    #endif
+    if (passby%16 == 0 ) { 
+      #ifdef RGB_LED
+      leds[0].setHue(Sampler.getActiveVoices()*30); 
+      FastLED.show();
+      #endif
+      
       DEBF("Active voices %d of %d \r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
-    
-    //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
-    //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
-    
+      
+      taskYIELD();
+      
+      //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
+      //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
+    }
   }
 }
 

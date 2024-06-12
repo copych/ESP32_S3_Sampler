@@ -72,63 +72,6 @@ sectors per read  |  reading speed, MB/s
 #include "sdmmc_types.h"
 //#define USE_MUTEX
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-// ESP32-S3 allows using SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0, SDMMC_D1, SDMMC_D2, SDMMC_D3)
-/*
-// default SDMMC GPIOs for S3:
-#define SDMMC_CMD 35
-#define SDMMC_CLK 36
-#define SDMMC_D0  37
-#define SDMMC_D1  38
-#define SDMMC_D2  33
-#define SDMMC_D3  34
-*/
-
-
-// TYPICAL dev board with two usb type-c connectors doesn't have GPIO 33 and 34
-/*
-#define SDMMC_CMD 3
-#define SDMMC_CLK 46 
-#define SDMMC_D0  9
-#define SDMMC_D1  10
-#define SDMMC_D2  11
-#define SDMMC_D3  12
-*/
-
-// LOLIN S3 PRO for example has a microSD socket, but D1 and D2 are not connected,
-// so if you dare you may solder these ones to GPIOs of your choice (please, refer 
-// to the docs choosing GPIOs, as they may have been used by some device already)
-// https://www.wemos.cc/en/latest/_static/files/sch_s3_pro_v1.0.0.pdf
-// LOLIN S3 PRO version (S3 allows configuring these ones):
-// 
-// DON'T YOU set LOLIN S3 PRO as a target board in Arduino IDE, because the board definition file 
-// seems to have some bugs, so you may have problems with MIDI. SET generic ESP32S3 Dev Module as your target!!!
-//
-
-#define SDMMC_CMD 11  // LOLIN PCB hardlink
-#define SDMMC_CLK 12  // PCB hardlink
-#define SDMMC_D0  13  // PCB hardlink
-#define SDMMC_D1  8   // my choice
-#define SDMMC_D2  10  // my choice
-#define SDMMC_D3  46  // PCB hardlink
-
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-
-// these pins require 10K pull-up, but if GPIO12 is pulled up on boot, we get a bootloop.
-// try using gpio_pullup_en(GPIO_NUM_12) or leave D2 as is 
-// GPIO2 pulled up probably won't let you switch to download mode, so disconnect it 
-// while uploading your sketch
-
-// General ESP32 (changing these pins is NOT possible)
-#define SDMMC_D0  2
-#define SDMMC_D1  4
-#define SDMMC_D2  12
-#define SDMMC_D3  13
-#define SDMMC_CLK 14
-#define SDMMC_CMD 15
-
-#endif
-
 
 /* 
  * Simplified read-only SD_MMC FAT32 (for wav sampler)

@@ -63,30 +63,7 @@ int SamplerEngine::scanRootFolder() {
 inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
   float maxVictimScore = 0.0;
   float minAmp = 1.0e30;
-  
   int id = 0;
-  /*
-  static int   candidates[MAX_POLYPHONY];
-  int same_notes = 0;
-  
-  for (int i = 0 ; i < _maxVoices ; i++) {
-    if (Voices[i].getMidiNote() == midi_note){ // we don't check isActive() cause inactive notes get midiNote = 255
-      candidates[same_notes] = i;
-      same_notes++;
-      if (same_notes>=_limitSameNotes) {
-        for(int j=0 ; j<same_notes; j++) {
-          if (Voices[candidates[j]].getKillScore() > maxVictimScore){
-            maxVictimScore = Voices[candidates[j]].getKillScore();
-            id = candidates[j];
-          }
-        }
-     //   DEBF("SAMPLER: Kill same note, killScore=%f\r\n", maxVictimScore);
-       //   Voices[id].end(Adsr::END_FAST);
-        return id;
-      }
-    }
-  }
-  */
   
   for (int i = 0 ; i < _maxVoices ; i++) {
     if (!Voices[i].isActive()){
@@ -95,18 +72,6 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
     }
   }  
 
-  /*
-  for (int i = 0 ; i < _maxVoices ; i++) {
-    if (Voices[i].getAmplitude() < minAmp){
-      minAmp = Voices[i].getAmplitude();
-      id = i;
-    }
-  }
-  DEBUG("Retrig most quiet");
-  Voices[id].end(Adsr::END_FAST);
-  return id;
-  */
-
   for (int i = 0 ; i < _maxVoices ; i++) {
     if (Voices[i].getKillScore() > maxVictimScore){
       maxVictimScore = Voices[i].getKillScore();
@@ -114,7 +79,6 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
     }
   }
   DEBUG("SAMPLER: No free slot: Steal a voice");
-  //Voices[id].end(Adsr::END_FAST);
   return id;
 }
 
@@ -316,7 +280,7 @@ void SamplerEngine::resetSamples() {
       _sampleMap[j][i].orig_freq = _keyboard[j].freq;
       _sampleMap[j][i].orig_velo_layer = 0;
       _sampleMap[j][i].amp = 1.0;
-      _sampleMap[j][i].speed = 0.0;
+      _sampleMap[j][i].speed = 0.0f;
       _sampleMap[j][i].bit_depth = 0;
       _sampleMap[j][i].attack_time   = _attackTime;
       _sampleMap[j][i].decay_time    = _decayTime;
@@ -336,14 +300,14 @@ int SamplerEngine::getActiveVoices() {
 }
 
 void SamplerEngine::getSample(float& sampleL, float& sampleR){
-  float sL = 0.0;
-  float sR = 0.0;
-  sampleL = 0.0;
-  sampleR = 0.0;
+  float sL = 0.0f;
+  float sR = 0.0f;
+  sampleL = 0.0f;
+  sampleR = 0.0f;
   for (int i = 0; i < _maxVoices; i++) {
     Voices[i].getSample(sL, sR);
-    sampleL += sL;
-    sampleR += sR;    
+    sampleL = sampleL + sL;
+    sampleR = sampleR + sR;    
   }  
 }
 
