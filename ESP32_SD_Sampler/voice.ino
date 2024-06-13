@@ -25,7 +25,7 @@ void Voice::init(SDMMC_FAT32* Card, bool* sustain, bool* normalized){
   }
   AmpEnv.init(SAMPLE_RATE);
   AmpEnv.end(Adsr::END_NOW);
-  _active   = 0;
+  _active   = false;
   _midiNote = 255;
   _pressed  = false;
   _eof      = true;
@@ -100,7 +100,7 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo) { 
     _hungerCoef = (float)_fullSampleBytes * (float)_speed;
  //    DEBF("VOICE %d: START note %d velo %d offset %d\r\n", my_id, midiNote, midiVelo, smpFile.byte_offset);
     AmpEnv.retrigger(Adsr::END_NOW);
-    _active = 1;
+    _active = true;
     _dying = false;
     _pressed = true;
 }
@@ -111,7 +111,7 @@ void Voice::end(Adsr::eEnd_t end_type){ // most likely being executed in Control
     case Adsr::END_NOW:{
       AmpEnv.end(Adsr::END_NOW);
  //     DEBF("VOICE %d: END: NOW midi note %d\r\n", my_id, _midiNote); 
-      _active = 0;
+      _active = false;
       _midiNote = 255;
       _amplitude = 0.0;
       break;
@@ -138,14 +138,14 @@ void Voice::getSample(float& sampleL, float& sampleR) {
   float l1, l2, r1, r2;
   sampleL = 0.0f; 
   sampleR = 0.0f;
-  if (_active==0 ) return;
+  if (!_active ) return;
   if (_bufEmpty[0] && _bufEmpty[1]) {
     return;
   } else {
     env =  (float)AmpEnv.process() * (float)_amp ;
    //  env = _amp;
     if (AmpEnv.isIdle()) {      
-      _active = 0;
+      _active = false;
       _dying = false;
       _midiNote = 255;
       _amplitude = 0.0f;
@@ -299,7 +299,7 @@ inline void Voice::toggleBuf(){
 
 
 uint32_t Voice::hunger() { // called by SamplerEngine::fillBuffer() in ControlTast, Core1
-    if (_active==0) return 0;
+    if (!_active) return 0;
     if ( _eof) return 0;
     if ( _dying) return 0;
     if (!_bufEmpty[0] && !_bufEmpty[1]) return 0;
@@ -317,7 +317,7 @@ inline float Voice::interpolate(float& v1, float& v2, float index) {
 }
 
 
-inline float Voice::getKillScore() {
-  if (_dying ) return 0.0f;
+inline float Voice::getKillScore() { // called by SamplerEngine::assignVoice() and freeSomeVoices in ControlTast, Core1
+  if (_dying ) return 0.0f; // don't kill twice
   return (float)_bytesPlayed * (float)_killScoreCoef ;
 }

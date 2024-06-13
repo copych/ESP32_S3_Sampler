@@ -116,7 +116,7 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
     
 #ifdef DEBUG_CORE_TIME 
     t4=micros();
-    DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+    DEBF("gen=%d, mix=%d, output=%d, total=%d\r\n", t2-t1, t3-t2, t4-t3, t4-t1);
 #endif
 
     out_buf_id = 1;
@@ -142,7 +142,7 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
     
 #ifdef DEBUG_CORE_TIME 
     t4=micros();
-    DEBF("gen=%d, mix=%d, output=%d\r\n", t2-t1, t3-t2, t4-t3);
+    DEBF("gen=%d, mix=%d, output=%d, total=%d\r\n", t2-t1, t3-t2, t4-t3, t4-t1);
 #endif
 
     out_buf_id = 0;
