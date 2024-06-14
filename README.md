@@ -63,7 +63,8 @@ type=melodic
 normalized=true
 ; Are the samples already amp-enveloped?
 enveloped=true
-
+; Overall Amplification
+amplify = 1.2
 
 [filename]
 # Filename elements recognized:
@@ -80,7 +81,11 @@ template=<NAME><OCTAVE>v<VELO>
 ; we must provide these variants along with the template. The order is important: from the most quiet to the most loud, comma separated
 veloVariants = 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
 
+; in addition we can provide optional info on how velocity layers shall be spread over the whole range of 0-127, giving the upper limits of each range
+veloLimits = 26,34,36,43,46,50,56,64,72,80,88,96,104,112,121,127
+
 [range]
+# notes without dampers
 first = F#6
 last = G8
 noteoff = false
