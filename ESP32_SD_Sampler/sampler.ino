@@ -318,7 +318,7 @@ void SamplerEngine::freeSomeVoices() {
   static byte note_count[128];
   int midi_note;
   int desiredFree = SACRIFY_VOICES;
-  float score 
+  float score;
   float maxKillScore = 0.0f;
   float maxSameKillScore = 0.0f;
   memset(note_count, 0, 128);
