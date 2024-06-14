@@ -314,11 +314,13 @@ void SamplerEngine::getSample(float& sampleL, float& sampleR){
 }
 
 void SamplerEngine::freeSomeVoices() {
-  int id, n=0;
+  int id, n = 0;
   static byte note_count[128];
   int midi_note;
   int desiredFree = SACRIFY_VOICES;
-  float score, maxKillScore = 0.0f;
+  float score 
+  float maxKillScore = 0.0f;
+  float maxSameKillScore = 0.0f;
   memset(note_count, 0, 128);
   for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
     if (Voices[i].isActive() && !Voices[i].isDying() ) {
@@ -329,8 +331,8 @@ void SamplerEngine::freeSomeVoices() {
         for (int j = 0 ; j < MAX_POLYPHONY ; j++) {
           if (Voices[j].getMidiNote() == midi_note) {
             score = Voices[j].getKillScore();
-            if (score > maxKillScore) {
-              maxKillScore = score;
+            if (score > maxSameKillScore) {
+              maxSameKillScore = score;
               id = j;
             }
           }
@@ -338,14 +340,14 @@ void SamplerEngine::freeSomeVoices() {
         Voices[id].end(Adsr::END_FAST);
         return;
       }
-    }
-    score = Voices[i].getKillScore();
-    if (score > maxKillScore) {
-      maxKillScore = score;
-      id = i;
+      score = Voices[i].getKillScore();
+      if (score > maxKillScore) {
+        maxKillScore = score;
+        id = i;
+      }
     }
   }
-  if (MAX_POLYPHONY < n + desiredFree) {
+  if ( ( n + SACRIFY_VOICES ) > MAX_POLYPHONY ) {
     Voices[id].end(Adsr::END_FAST);
     return;
   }

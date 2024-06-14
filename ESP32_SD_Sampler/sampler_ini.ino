@@ -109,7 +109,7 @@ void SamplerEngine::parseIni() {
       case S_SAMPLESET:
       default:
         // title = Coda88 Piano 
-        if (tok == "NOTEOFF" || tok == "NOTE_OFF") {_title = iniStr; continue;}
+        if (tok == "TITLE") {_title = iniStr; continue;}
         // type=melodic 
         if (tok == "TYPE") {
           _type = parseInstrType(iniStr);
