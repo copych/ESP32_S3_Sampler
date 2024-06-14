@@ -34,7 +34,7 @@ This section describes how the WAV files are self-mapped basing on the info pars
     *  ```<VELO>``` - velocity layer
     *  ```<INSTR>``` - instruments names (mostly percussion) used in filenames, initially they are collected from this ini file
     *  all other elements without brackets will be treated as some constant string delimeters
-    *  e.g. for the files named like ```065_F#2_Mid.wav``` we would use ```template = <NUMBER>_<NAME><OCTAVE>_<VELO>```
+    *  e.g. for the files named like ```065_F#2_Mid.wav``` we would use ```template = <NUMBER>_<NAME><OCTAVE>_<VELO>```, where ```065``` is some number (unused), ```F#2``` is the note name, ```2``` is an octave number, ```_``` are just separators, and ```Mid``` is a velocity layer 
 *  velo_variants = ```comma separated strings```
     *  we list the variants that are present in the filenames e.g. ```velo_variants = Soft,Mid,Hard```  
 *  velo_limits = ```comma separated integers```
