@@ -51,8 +51,11 @@ What's not working:
 * 16, 24 and 32 bit samples support. 16 and 24 bits are supported now.
 * <s>Demo video shall be done</s>
 
-# SAMPLER.INI examples
+# SAMPLER.INI and examples
 One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
+
+Ini syntax is described here: https://github.com/copych/ESP32_S3_Sampler/blob/main/sampler_ini_syntax.md
+the doc is under development and will be improved.
 
 Here is an example of a sampler.ini file for the Salamander Grand Piano WAV-set:
 ```
