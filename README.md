@@ -133,7 +133,7 @@ default = true
 ; times in seconds
 attackTime = 0.0
 decayTime = 0.05
-releaseTime = 12.0
+releaseTime = 0.2
 
 ; sustain level 0.0 - 1.0
 sustainLevel = 1.0
