@@ -150,4 +150,5 @@ void handleProgramChange(uint8_t inChannel, uint8_t number) {
 }
 
 inline void handlePitchBend(uint8_t inChannel, int number) {
+  Sampler.setPitch(number); 
 }

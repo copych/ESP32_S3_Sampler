@@ -174,7 +174,9 @@ void SamplerEngine::setSustainLevel(float val) {
 uint8_t SamplerEngine::mapVelo(uint8_t velo) {
   switch(_veloCurve) {
     case VC_LINEAR:
-      return (uint8_t)((float)velo * (float)_veloLayers * DIV128);
+      return (uint8_t)((float)velo * (float)_veloLayers * DIV_128);
+    case VC_CUSTOM:
+      return _veloMap[velo];
     default: 
       return _veloLayers-1;
     return 0;
@@ -346,5 +348,14 @@ void SamplerEngine::freeSomeVoices() {
   if (MAX_POLYPHONY < n + desiredFree) {
     Voices[id].end(Adsr::END_FAST);
     return;
+  }
+}
+
+
+inline void SamplerEngine::setPitch(int number) {
+  float speedModifier = (((float)(number + 8192) * TWO_DIV_16383 ) - 1.0f ) * (float)_pitchBendSemitones;
+  speedModifier = semitones2speed(speedModifier);
+  for (int i=0; i<_maxVoices; i++) {
+    Voices[i].setPitch(speedModifier);
   }
 }

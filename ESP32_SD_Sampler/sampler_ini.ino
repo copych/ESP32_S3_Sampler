@@ -3,6 +3,7 @@
 
 void SamplerEngine::parseIni() {
   eSection_t section = S_NONE;
+  _veloCurve = VC_LINEAR;
   ini_range_t range;
   _template.clear();
   _ranges.clear();
@@ -58,6 +59,11 @@ void SamplerEngine::parseIni() {
         if (tok == "TEMPLATE") { parseFilenameTemplate(iniStr) ; continue; }
         // veloVariants
         if (tok == "VELOVARIANTS" || tok == "VELO_VARIANTS") {_veloVars = parseVariants(iniStr); continue; }
+        // veloLimits
+        if (tok == "VELOLIMITS" || tok == "VELO_LIMITS") {
+          _veloCurve = VC_CUSTOM;
+          parseLimits(iniStr); continue; 
+        }
         break;
       case S_ENVELOPE:
         // attackTime = 0.0
@@ -198,6 +204,33 @@ variants_t SamplerEngine::parseVariants( str256_t& val) {
   return vars;
 }
 
+void SamplerEngine::parseLimits( str256_t& val) {
+  DEBUG("INI: Parsing velo limits");
+  variants_t vars;
+  vars.clear();
+  val.trim();
+  int j = 0;
+  int k = 0;
+  int lim1 = 0;
+  int lim2 = 0;
+  int layer = 0;
+  while (true) {
+    str20_t s1;
+    k = val.indexOf("," , j);
+    if (k == -1 || k < j) k = val.length();
+    s1 = val.substring(j, k);
+    s1.trim();
+    lim2 = s1.toInt();
+    for (int i = lim1; i <= lim2; i++) { _veloMap[i] = layer; }
+    DEBF("Adding %s\r\n" , s1.c_str());
+    layer++;
+    lim1 = lim2 + 1;
+    if (k == val.length()) break;
+    if (lim1 > 127) break;
+    j = k + 1;
+  }
+  _veloCurve = VC_CUSTOM;
+}
 
 eInstr_t SamplerEngine::parseInstrType(str256_t& val) {
   val.trim();

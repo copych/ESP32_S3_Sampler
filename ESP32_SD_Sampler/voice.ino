@@ -18,6 +18,7 @@ void Voice::init(SDMMC_FAT32* Card, bool* sustain, bool* normalized){
   _Card = Card;
   _sustain = sustain;
   _normalized = normalized;
+  _speedModifier = 1.0f;
   if (!allocateBuffers()) {
     DEBUG("VOICE: INIT: NOT ENOUGH MEMORY");
     delay(100);
@@ -42,7 +43,7 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo) { 
     _bytesPlayed            = 0;
     _coarseBytesPlayed      = 0;
     _fullSampleBytes        = smpFile.channels * smpFile.bit_depth / 8;
-    _speed                  = smpFile.speed;
+    _speed                  = smpFile.speed * _speedModifier;
     _bufSizeSmp             = BUF_SIZE_BYTES / _fullSampleBytes;
     _bufEmpty[0]            = true;
     _bufEmpty[1]            = true;
@@ -320,4 +321,10 @@ inline float Voice::interpolate(float& v1, float& v2, float index) {
 inline float Voice::getKillScore() { // called by SamplerEngine::assignVoice() and freeSomeVoices in ControlTast, Core1
   if (_dying ) return 0.0f; // don't kill twice
   return (float)_bytesPlayed * (float)_killScoreCoef ;
+}
+
+
+inline void Voice::setPitch(float speedModifier) {
+  _speedModifier = speedModifier;
+  _speed = _sampleFile.speed * speedModifier;
 }

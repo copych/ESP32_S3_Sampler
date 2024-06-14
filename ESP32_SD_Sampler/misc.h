@@ -5,6 +5,9 @@
 #define FASTLED_INTERNAL                  // remove annoying pragma messages
 
 const float MIDI_NORM           = (1.0f / 127.0f);
+const float DIV_128             = (1.0f / 128.0f);
+const float TWO_DIV_16383       = (2.0f / 16383.0f);
+
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
 // 1.0594630943592952645618252949463 // is a 12th root of 2 (pitch increase per semitone)

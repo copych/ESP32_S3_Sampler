@@ -65,6 +65,7 @@ class Voice {
     inline uint32_t   hunger();
     inline void       setStarted(bool st)   {_started = st;}
     inline void       setPressed(bool pr)   {_pressed = pr;}
+    inline void       setPitch(float speedModifier);
     inline int        getChannels()   {return _sampleFile.channels;}
     inline bool       isActive()      {return _active;}
     inline bool       isDying()       {return _dying;}

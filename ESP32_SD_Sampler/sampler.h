@@ -10,7 +10,7 @@
 #include "sdmmc.h"
 
 enum eVoiceAlloc_t  { VA_OLDEST, VA_MOST_QUIET, VA_PERCEPTUAL, VA_NUMBER }; // not implemented
-enum eVeloCurve_t   { VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // not implemented
+enum eVeloCurve_t   { VC_LINEAR, VC_CUSTOM, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // not implemented
 enum eItem_t        { P_NUMBER, P_NAME, P_MIDINOTE, P_OCTAVE, P_SEPARATOR, P_VELO, P_INSTRUMENT }; // filename template elements 
 enum eInstr_t       { SMP_MELODIC, SMP_PERCUSSIVE }; 
 enum eSection_t     { S_NONE, S_SAMPLESET, S_FILENAME, S_ENVELOPE, S_NOTE, S_RANGE, S_GROUP };
@@ -98,6 +98,7 @@ class SamplerEngine {
     inline void     setNextFolder();                        // sets current folder to the next dir which was found during scanFolders()
     inline void     setPrevFolder();                        // sets current folder to the previous dir which was found during scanFolders()
     inline void     setSustain(bool onoff)                ;
+    inline void     setPitch(int num)                     ; // -8192 .. 8191
     inline void     setDelaySendLevel(float val)          {_sendDelay = val;}
     inline void     setReverbSendLevel(float val)         {_sendReverb = val;}
     inline void     setVolume(float val)                  {_amp = val;}
@@ -127,6 +128,7 @@ class SamplerEngine {
     int             parseIntValue( str256_t& val );
     eInstr_t        parseInstrType( str256_t& val );
     variants_t      parseVariants( str256_t& val); 
+    void            parseLimits( str256_t& val); 
     void            parseWavHeader(entry_t* entry, sample_t& smp);
     void            applyRange(ini_range_t& range);
     void            finalizeMapping();
@@ -136,13 +138,13 @@ class SamplerEngine {
     void            resetSamples();
     uint8_t         midiNoteByName(str8_t noteName);
     void            printMapping();
-    static constexpr float DIV128 = 1.0f / 128.0f;
     sample_t        _sampleMap[128][MAX_VELOCITY_LAYERS];
     midikey_t       _keyboard[128];
     float           _ampCurve[128];       // velocity to amplification mapping [0.0 ... 1.0] to make seamless velocity response curve
     eVeloCurve_t    _veloCurve            = VC_LINEAR;
+    uint8_t         _veloMap[128];
     uint8_t         _veloLayers           = 1;
-    float           _divVeloLayers        = 1.0;
+    float           _divVeloLayers        = 1.0f;
     int             _sampleRate           = SAMPLE_RATE;
     byte            _sampleChannels       = WAV_CHANNELS; // 2 = stereo, 1 = mono : use or not stereo data in sample files
     byte            _maxVoices            = MAX_POLYPHONY; 
@@ -151,14 +153,16 @@ class SamplerEngine {
     volatile int    _currentFolderId      = 0;
     fname_t         _currentFolder        ;
     int             _sampleSetsCount      = 0;    
-    float           _sendDelay            = 0.0;
-    float           _sendReverb           = 0.0;
-    float           _amp                  = 0.9;
-    float           _pano                 = 0.5;
-    float           _attackTime           = 0.0;
-    float           _decayTime            = 0.05;
-    float           _releaseTime          = 8.0;
-    float           _sustainLevel         = 1.0;
+    float           _sendDelay            = 0.0f;
+    float           _sendReverb           = 0.0f;
+    float           _amp                  = 0.9f;
+    float           _pano                 = 0.5f;
+    float           _attackTime           = 0.0f;
+    float           _decayTime            = 0.05f;
+    float           _releaseTime          = 8.0f;
+    float           _sustainLevel         = 1.0f;
+    float           _speed                = 1.0f;
+    int             _pitchBendSemitones   = 2;
     eVoiceAlloc_t   _voiceAllocMethod     = VA_OLDEST; // not implemented, VA_PERCEPTUAL is gonna be the only one
     int             _parser_i             = 0;
     bool            _enveloped            = true;

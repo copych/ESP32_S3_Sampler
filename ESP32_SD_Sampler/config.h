@@ -2,7 +2,7 @@
 
 //******************************************************* DEBUG **********************************************
 #define DEBUG_ON
-#define DEBUG_CORE_TIME
+//#define DEBUG_CORE_TIME
 //#define C_MAJOR_ON_START                // play C major chord on startup (testing)
 
 //******************************************************* SYSTEM **********************************************

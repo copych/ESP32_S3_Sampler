@@ -95,6 +95,7 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
   volatile uint32_t t1,t2,t3,t4;
   out_buf_id = 0;
   gen_buf_id = 1;
+  
   while (true) {
 #ifdef DEBUG_CORE_TIME 
     t1=micros();
@@ -154,10 +155,9 @@ static void  IRAM_ATTR control_task(void *userData) { // core 1 task
   DEBUG ("core 1 control task run");
   vTaskDelay(20);
   static uint32_t passby = 0;
+
   while (true) { 
 
-    processButtons();
-    
     Sampler.freeSomeVoices();
     
     Sampler.fillBuffer();
@@ -173,17 +173,18 @@ static void  IRAM_ATTR control_task(void *userData) { // core 1 task
     passby++;
 
     if (passby%16 == 0 ) { 
+    
+      processButtons();
+      taskYIELD();
+      
       #ifdef RGB_LED
       leds[0].setHue(Sampler.getActiveVoices()*30); 
       FastLED.show();
       #endif
       
-      DEBF("Active voices %d of %d \r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
-      
-      taskYIELD();
-      
-      //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
-      //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
+    //  DEBF("Active voices %d of %d \r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
+    //  DEBF("ControlTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(ControlTask));
+    //  DEBF("SynthTask unused stack size = %d bytes\r\n", uxTaskGetStackHighWaterMark(SynthTask));
     }
   }
 }
@@ -225,9 +226,9 @@ DEBUG("I2S: INIT");
   
   initButtons();
   
-  xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 23, &SynthTask, 0 );
+  xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 28, &SynthTask, 0 );
  
-  xTaskCreatePinnedToCore( control_task, "ControlTask", 8000, NULL, 10, &ControlTask, 1 );
+  xTaskCreatePinnedToCore( control_task, "ControlTask", 8000, NULL, 20, &ControlTask, 1 );
 
   #ifdef C_MAJOR_ON_START
   delay(100);
