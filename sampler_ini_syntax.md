@@ -37,8 +37,8 @@ This section contains global parameters:
 
 ## Sections [RANGE] and [NOTE]
 *  name = ```string```
-*  first = ```integer```
-*  last = ```integer```
+*  first = ```string```
+*  last = ```string```
 *  instr = ```string```
 *  noteoff = ```boolean```
 *  speed = ```float```
