@@ -6,10 +6,10 @@ Also, please, note that some parameters are parsed, but not implemented yet.
 
 * Due to using fixed strings, a line length shouldn't exceed 252 symbols.
 * Quotes are not used.
-* Boolean values can be represented by the following strings: yes, no, true, false, 1, 0, y, n, none
-* Integer values should be numbers with no commas or points, i.e. 127 or -1
-* Float values should contain a point, e.g. 127.0 or -1.001
-* Strings are used without quotes. Leading and trailing spaces are trimmed. E.g. value of ```param = a b c   ``` would be parsed as "a b c"  
+* ```Boolean``` values can be represented by the following strings: yes, no, true, false, 1, 0, y, n, none
+* ```Integer``` values should be numbers with no commas or points, i.e. 127 or -1
+* ```Float``` values should contain a point, e.g. 127.0 or -1.001
+* ```Strings``` are used without quotes. Leading and trailing spaces are trimmed. E.g. value of ```param = a b c   ``` would be parsed as "a b c"  
 
 ## Comment lines
 Comments are started with a sharp sign (#) or a semicolon (;)
