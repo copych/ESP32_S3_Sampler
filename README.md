@@ -34,7 +34,8 @@ PS. Of what I have tested, faster cards won't give you dramatical improvement in
 There are currently 16 velocity layers (i.e. dynamic variants of each sampled note) which corresponds to the maximum count that I have found (https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html).
 
 # Audio FX
-Reverb is implemented as a POC (Proof of Concept). Probably there are some idle CPU cycles left which we can turn into chorus or whatever.
+Reverb is implemented and controllable via midi.
+Depending on the remaining memory and CPU cycles it's possible to add the effects to the chain.
 
 # TODO
 The state of the project has not gone far from POC, so don't you expect a ready-made perfect sampler.
