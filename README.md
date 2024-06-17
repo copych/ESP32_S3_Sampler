@@ -44,11 +44,11 @@ What's not working:
 * Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
 * Velocity routines are not fully implemented.
 * Looping of any kind is not implemented.
-* <s>Envelope params are hard-coded</s> (MOVED TO INI, MIDI CC CONTROLS TO COME)
-* <s>SAMPLER.INI syntax has to be developed much further.</s> Basic syntax is done now.
-* Only a simple reverb effect is implemented as a POC with hard-coded params.
+* <s>Envelope params are hard-coded</s> Ini settings + midi CC 
+* <s>SAMPLER.INI syntax has to be developed much further.</s> Basic syntax is done now. Work in progress.
+* <s>Only a simple reverb effect is implemented as a POC with hard-coded params</s>. Reverb is now controlled via midi CC.
 * It lacks schematics, but, please, check the .h files and /media folder for the connectivity info.
-* 16, 24 and 32 bit samples support. 16 and 24 bits are supported now.
+* <s>16, 24</s> and 32 bit samples support. 16 and 24 bits PCM are now supported.
 * <s>Demo video shall be done</s>
 
 # SAMPLER.INI and examples
