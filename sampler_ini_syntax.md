@@ -57,6 +57,7 @@ This section describes how the WAV files are self-mapped basing on the info pars
 *  decay_time = ```float```
 *  release_time = ```float```
 *  sustain_level = ```float```
+*  limit_same_notes = ```integer``` - limits number of simultaneous same notes 
 
 ## Section [GROUP]
 * notes = ```comma separated strings```
