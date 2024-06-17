@@ -327,7 +327,7 @@ void SamplerEngine::freeSomeVoices() {
       n++;
       midi_note = Voices[i].getMidiNote();
       note_count[midi_note]++;
-      if (note_count[midi_note] > _limitSameNotes) { // if we have limit overrun, find the best candidate
+      if (note_count[midi_note] > _keyboard[midi_note].limit_same) { // if we have limit overrun, find the best candidate
         for (int j = 0 ; j < MAX_POLYPHONY ; j++) {
           if (Voices[j].getMidiNote() == midi_note) {
             score = Voices[j].getKillScore();
@@ -355,8 +355,8 @@ void SamplerEngine::freeSomeVoices() {
 
 
 inline void SamplerEngine::setPitch(int number) {
-  float speedModifier = (((float)(number + 8192) * TWO_DIV_16383 ) - 1.0f ) * (float)_pitchBendSemitones;
-  speedModifier = semitones2speed(speedModifier);
+  float speedModifier = ((((float)number + 8191.5f) * (float)TWO_DIV_16383 ) - 1.0f ) * (float)_pitchBendSemitones;
+  speedModifier = fast_semitones2speed(speedModifier);
   for (int i=0; i<_maxVoices; i++) {
     Voices[i].setPitch(speedModifier);
   }

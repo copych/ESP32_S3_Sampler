@@ -13,7 +13,7 @@ enum eVoiceAlloc_t  { VA_OLDEST, VA_MOST_QUIET, VA_PERCEPTUAL, VA_NUMBER }; // n
 enum eVeloCurve_t   { VC_LINEAR, VC_CUSTOM, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // not implemented
 enum eItem_t        { P_NUMBER, P_NAME, P_MIDINOTE, P_OCTAVE, P_SEPARATOR, P_VELO, P_INSTRUMENT }; // filename template elements 
 enum eInstr_t       { SMP_MELODIC, SMP_PERCUSSIVE }; 
-enum eSection_t     { S_NONE, S_SAMPLESET, S_FILENAME, S_ENVELOPE, S_NOTE, S_RANGE, S_GROUP };
+enum eSection_t     { S_NONE, S_SAMPLESET, S_FILENAME, S_NOTE, S_RANGE, S_GROUP };
 
 using str8_t    = FixedString<8>; 
 using str20_t   = FixedString<20>;
@@ -28,31 +28,37 @@ typedef struct {
   bool        noteoff     = true;
   float       speed       = 1.0f;
   int         velo_layer  = -1;
-  
+  int         limit_same  = 2;
   float       attack_time   = 0.0f;
   float       decay_time    = 0.5f;
   float       sustain_level = 1.0f;
   float       release_time  = 12.0f;
   bool        loop          = false;
   inline void clear(eInstr_t t) {
-    first = 0;
-    last = 127;
-    instr = "";
-    velo_layer = -1;
-    noteoff = (t != SMP_PERCUSSIVE) ;
-    speed = 1.0f;
+    first         = 0;
+    last          = 127;
+    instr         = "";
+    velo_layer    = -1;
+    noteoff       = (t != SMP_PERCUSSIVE) ;
+    speed         = 1.0f;
+    limit_same    = 2;
+    attack_time   = 0.0f;
+    decay_time    = 0.5f;
+    sustain_level = 1.0f;
+    release_time  = 12.0f;
+    loop          = false;
   }
 } ini_range_t;
 
 typedef struct {
-  str8_t      name[2]     ;       // sharp (#) and flat (b) variants
-  int         octave      ;       // octave number (-1 to 9)
-//  uint8_t     velo_layer  ;       // velocity layer that sample belongs to
-  float       freq        ;       // calculated frequency for each midi note (A4=440Hz)
-  float       tuning      = 1.0f; // 0.9 = 10% lower, 1.1 = 10% higher
-  int         transpose   = 0;    // +/- semitones
-  bool        noteoff     = true; // should it handle note off messages
-  int         group       = -1;  
+  str8_t      name[2]       ;       // sharp (#) and flat (b) variants
+  int         octave        ;       // octave number (-1 to 9)
+  float       freq          ;       // calculated frequency for each midi note (A4=440Hz)
+  float       tuning        = 1.0f; // 0.9 = 10% lower, 1.1 = 10% higher
+  int         transpose     = 0;    // +/- semitones
+  bool        noteoff       = true; // should it handle note off messages
+  int         group         = -1;
+  int         limit_same    = 2;
   float       attack_time   = 0.0f;
   float       decay_time    = 0.5f;
   float       sustain_level = 1.0f;
@@ -60,16 +66,10 @@ typedef struct {
 } midikey_t;
 
 typedef struct {
-  eItem_t                item_type;
-  str20_t                 item_str;
+  eItem_t     item_type;
+  str20_t     item_str;
 } template_item_t;
 
-/*
-typedef struct {
-  int      midi_note;
-  str20_t  instr;
-} mapping_t;
-*/
 
 const str8_t notes[2][12]= {
   {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"},
@@ -165,7 +165,6 @@ class SamplerEngine {
     int             _pitchBendSemitones   = 2;
     eVoiceAlloc_t   _voiceAllocMethod     = VA_OLDEST; // not implemented, VA_PERCEPTUAL is gonna be the only one
     int             _parser_i             = 0;
-    bool            _enveloped            = true;
     bool            _normalized           = false;
     bool            _sustain              = false;
     eInstr_t        _type                 = SMP_MELODIC;
