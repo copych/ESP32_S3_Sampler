@@ -19,11 +19,15 @@ This section contains global parameters:
 *  title = ```string```
 *  type = ```melodic``` or ```percussive```
 *  normalized = ```boolean```
-*  enveloped = ```boolean```
+*  <s>enveloped = ```boolean```</s> no longer supported
 *  amplify = ```float```
 *  max_voices = ```integer```
 *  limit_same_notes = ```integer```
-
+*  attack_time = ```float```
+*  decay_time = ```float```
+*  release_time = ```float```
+*  sustain_level = ```float```
+  
 ## Section [FILENAME]
 This section describes how the WAV files are self-mapped basing on the info parsed out of their filenames
 *  template = ```string```
@@ -40,11 +44,7 @@ This section describes how the WAV files are self-mapped basing on the info pars
 *  velo_limits = ```comma separated integers```
     *  optional, we list the upper limits of each velocity layer e.g. ```velo_limits = 40,96,127```
 
-## Section [ENVELOPE]
-*  attack_time = ```float```
-*  decay_time = ```float```
-*  release_time = ```float```
-*  sustain_level = ```float```
+## <s>Section [ENVELOPE]</s> no longer supported, moved to [sampleset]
 
 ## Sections [RANGE] and [NOTE]
 *  name = ```string```
