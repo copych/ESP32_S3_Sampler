@@ -65,10 +65,19 @@ title = Salamander Grand Piano
 type=melodic
 ; Are all the samples of equal loudness? If true then we apply amplification according to the midi note velocity.
 normalized=true
-; Are the samples already amp-enveloped?
-enveloped=true
 ; Overall Amplification
 amplify = 1.2
+
+; ADSR times in seconds
+attackTime = 0.0
+decayTime = 0.05
+releaseTime = 12.0
+; ADSR sustain level 0.0 - 1.0
+sustainLevel = 1.0
+
+# !!!!!!!!!!!!!!! "enveloped=bool" is no longer supported, as the ADSR is always applyed
+
+# !!!!!!!!!!!!!!! [envelope] section is no longer supported, [sampleset] now holds global settings
 
 [filename]
 # Filename elements recognized:
@@ -82,10 +91,12 @@ amplify = 1.2
 ; these elements are case insensitive, heading and trailing spaces are trimmed.
 template=<NAME><OCTAVE>v<VELO>
 
-; we must provide these variants along with the template. The order is important: from the most quiet to the most loud, comma separated
+; we must provide these variants along with the template. The order is important: from the most quiet
+; to the most loud, comma separated
 veloVariants = 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
 
-; in addition we can provide optional info on how velocity layers shall be spread over the whole range of 0-127, giving the upper limits of each range
+; in addition we can provide optional info on how velocity layers shall be spread over
+; the whole range of 0-127, giving the upper limits of each range
 veloLimits = 26,34,36,43,46,50,56,64,72,80,88,96,104,112,121,127
 
 [range]
@@ -98,17 +109,6 @@ noteoff = false
 ; instr=instrument_name(as in filename)
 ; noteoff=0/1 (0=ignore, 1=end note)
 ; speed=float_number(1.0 means unchanged (default), 1.2 means 20% faster which is higher pitch, 0.9 is 10% lower)
-
-
-[envelope]
-default = true
-; times in seconds
-attackTime = 0.0
-decayTime = 0.05
-releaseTime = 12.0
-
-; sustain level 0.0 - 1.0
-sustainLevel = 1.0
 ```
 
 another sampler.ini example is for a drumkit MuldjordKit-SFZ-20201018, all the samples moved to a single folder
@@ -124,20 +124,16 @@ type=percussive
 ; Are all the samples of equal loudness? If true then we apply amplification according to the midi note velocity.
 normalized=true
 
-; Are the samples already amp-enveloped?
-enveloped=true
-
-[envelope]
-default = true
-
-; times in seconds
+; ADSR times in seconds
 attackTime = 0.0
 decayTime = 0.05
 releaseTime = 0.2
-
-; sustain level 0.0 - 1.0
+; ADSR sustain level 0.0 - 1.0
 sustainLevel = 1.0
 
+# !!!!!!!!!!!!!!! "enveloped=bool" is no longer supported, as the ADSR is always applyed
+
+# !!!!!!!!!!!!!!! [envelope] section is no longer supported, [sampleset] now holds global settings
 
 [filename]
 # Filename elements recognized:
