@@ -85,6 +85,11 @@ inline int SamplerEngine::assignVoice(byte midi_note, byte velo){
 inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   int i = assignVoice(midiNote, velo);
   sample_t smp = _sampleMap[midiNote][mapVelo(velo)];
+  for (int n = 0; n < ( ( MAX_NOTES_PER_GROUP - 1 ) * MAX_GROUPS_CROSSES ); n++ ) {
+    if (_groups[midiNote][n] == 255) break;    // terminate
+    DEBF("SAMPLER: GROUP KILL: %d\r\n", _groups[midiNote][n]);
+    noteOff(_groups[midiNote][n], Adsr::END_SEMI_FAST);      // provide exclusivity
+  }
   if (smp.channels > 0) {
    // DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
     Voices[i].setStarted(false);
@@ -95,16 +100,13 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   }
 }
 
-inline void SamplerEngine::noteOff(uint8_t midiNote, bool hard ){
-  Adsr::eEnd_t end_type ;
-  if (hard) end_type = Adsr::END_NOW; else end_type = Adsr::END_REGULAR;
-  if (_keyboard[midiNote].noteoff || hard) {
+inline void SamplerEngine::noteOff(uint8_t midiNote, Adsr::eEnd_t end_type ){
+  if (_keyboard[midiNote].noteoff || end_type!= Adsr::END_REGULAR) {
     for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
       if (Voices[i].getMidiNote() == midiNote && Voices[i].isActive()) {      
         // DEBF("SAMPLER: NOTE OFF Voice %d note %d \r\n", i, midiNote);
         Voices[i].setPressed(false);
         Voices[i].end(end_type);
-        // return;
       }
     }
   }
@@ -231,7 +233,7 @@ inline void SamplerEngine::setCurrentFolder(int folder_id) {
       processNameParser(entry); // parse filenames basing on a prepared template
     }
   }
-  printMapping();
+  //printMapping();
   finalizeMapping();  // fill the gaps when we don't have dedicated samples for some pitches or velocity layers
   printMapping();
 }

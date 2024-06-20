@@ -51,14 +51,14 @@ static __attribute__((always_inline)) inline float semitones2speed(float semiton
 static __attribute__((always_inline)) inline float fastPow(float a, float b) {
  // int32_t mc = 1072632447;
   int16_t mc = 16256;
-  float ex = fabs(fabs((float)b - (int)b) - 0.5 ) - 0.5;
+  float ex = fabs(fabs((float)b - (int)b) - 0.5f ) - 0.5f;
     union {
         float f;
         int16_t x[2];
     } u = { a };
     u.x[1] = (int16_t)(b * ((float)u.x[1] - (float)mc) + (float)mc);
     u.x[0] = 0;
-    u.f *= 1.0 + 0.138 * (ex) ;
+    u.f *= 1.0f + 0.138f * (float)ex ;
     return u.f;
 }
 

@@ -44,13 +44,14 @@ void Voice::start(const sample_t smpFile, uint8_t midiNote, uint8_t midiVelo) { 
     _coarseBytesPlayed      = 0;
     _fullSampleBytes        = smpFile.channels * smpFile.bit_depth / 8;
     _speed                  = smpFile.speed * _speedModifier;
-    _bufSizeSmp             = BUF_SIZE_BYTES / _fullSampleBytes;
+    _bufSizeBytes           = BUF_SIZE_BYTES;
+    _bufSizeSmp             = _bufSizeBytes / _fullSampleBytes;
     _bufEmpty[0]            = true;
     _bufEmpty[1]            = true;
     _bufPosSmp[0]           = _bufSizeSmp;
     _bufPosSmp[1]           = _bufSizeSmp;
     _eof                    = false; 
-    _bufPlayed              = 0;
+    // _bufPlayed              = 0;
     _fillBuffer             = _buffer0;
     _playBuffer             = _buffer1;
     _idToFill               = 0;
@@ -190,20 +191,19 @@ void Voice::getSample(float& sampleL, float& sampleR) {
   }
 }
 
-inline void  Voice::feed() { // executed in Control Task (Core1)
+void  Voice::feed() { // executed in Control Task (Core1)
   if (_bufEmpty[_idToFill] && !_eof) {
     
-    /*
     if (_loop) {
       int bytes_till_loop_end = _loopLastSmp * _fullSampleBytes - _bytesPlayed;
-      float fill_coef =  (float)bytes_till_loop_end / (float)BUF_SIZE_BYTES ;
-      if (fill_coef >= 1.0f && fill_coef < 1.42f) {
+      float fill_coef =  (float)bytes_till_loop_end * (float)DIV_BUF_SIZE_BYTES ;
+      if (fill_coef >= 1.0f && fill_coef < 1.42f) { // this situation needs correction
         // change buffer size to allow looping wav data to be loaded from SD (not just a few bytes to play before rewinding to the loop start)
         // divide the remaining bytes appx by half
         
       } 
     }
-    */
+
     int sectorsToRead = READ_BUF_SECTORS;
     int sectorsAvailable;
     volatile uint8_t* bufAddr =  _fillBuffer;
@@ -235,7 +235,7 @@ inline void  Voice::feed() { // executed in Control Task (Core1)
     if (firstSec == _lastSectorRead) {
       _lastSectorRead = lastSec;
       // copy first bytes of fillBuffer to playBuffer's extra zone for speeding up interpolation on bufToggle
-      memcpy((void*)(_playBuffer + BUF_SIZE_BYTES), (const void*)(_fillBuffer ), BUF_EXTRA_BYTES);
+      memcpy((void*)(_playBuffer + _bufSizeBytes), (const void*)(_fillBuffer ), BUF_EXTRA_BYTES);
       if (!_started) { // init state: bufToFill = 0, bufToPlay = 1
         _idToFill               = 1;
         _idToPlay               = 0;
@@ -245,7 +245,7 @@ inline void  Voice::feed() { // executed in Control Task (Core1)
         _bufPosSmp[_idToPlay]   = 0;  
         _bufPosSmpF             = _bufPosSmp[_idToPlay];
         _playBufOffset          = _sampleFile.byte_offset ;
-        _samplesInPlayBuf       = (BUF_SIZE_BYTES - _playBufOffset) / _fullSampleBytes ;
+        _samplesInPlayBuf       = (_bufSizeBytes - _playBufOffset) / _fullSampleBytes ;
      //   DEBF("VOICE %d: FEED-0: pos: %d, inBuf: %d, offset: %d, BPlyd: %d, firstSec %d, lastSec %d \r\n", my_id, _bufPosSmp[_idToPlay ], _samplesInPlayBuf, _playBufOffset, _bytesPlayed, firstSec, _lastSectorRead );
         _started = true;
       } else {
@@ -262,22 +262,21 @@ inline void  Voice::feed() { // executed in Control Task (Core1)
 }
 
 
-inline void Voice::toggleBuf(){  
+inline void Voice::toggleBuf(){  // Core0
   if (!_started ) return;
   if (_bufEmpty[_idToFill ]) {
     end(Adsr::END_NOW); // O-oh!!! We are late ((
     return;
   }
-  int filePosBytes = (int)((int)_bufPlayed * (int)BUF_SIZE_BYTES) + (int)_playBufOffset + (int)((int)_bufPosSmp[_idToPlay] * (int)_fullSampleBytes);
-  _bufPlayed++;
-  _coarseBytesPlayed = (int)((int)BUF_SIZE_BYTES * (int)_bufPlayed);
-  _playBufOffset =  (int)filePosBytes -  (int)_coarseBytesPlayed;
+  int filePosBytes = (int)_coarseBytesPlayed + (int)_playBufOffset + (int)((int)_bufPosSmp[_idToPlay] * (int)_fullSampleBytes);
+  // _bufPlayed++;
+  _coarseBytesPlayed += _bufSizeBytes;
   _bufEmpty[_idToPlay ] = true;
   _bufPosSmpF -= (float)_bufPosSmp[_idToPlay];
   _bufPosSmp[_idToFill]   = _bufPosSmpF;
   _bytesPlayed = (int)filePosBytes - (int)_sampleFile.byte_offset ;
   _playBufOffset = (int)filePosBytes - (int)_coarseBytesPlayed;
-  _samplesInPlayBuf = ( (int)BUF_SIZE_BYTES -  (int)_playBufOffset) /  (int)_fullSampleBytes ;
+  _samplesInPlayBuf = ( (int)_bufSizeBytes -  (int)_playBufOffset ) /  (int)_fullSampleBytes ;
  // DEBF("VOICE %d: TOGGLE: pos: %d, inBuf: %d, off: %d, BPlyd: %d, ampl %f lastSec %d \r\n", my_id, _bufPosSmp[_idToPlay ], _samplesInPlayBuf, _playBufOffset, _bytesPlayed, _amplitude, _lastSectorRead );
   switch(_idToPlay ) { 
     case 0:
@@ -299,7 +298,7 @@ inline void Voice::toggleBuf(){
 
 
 
-uint32_t Voice::hunger() { // called by SamplerEngine::fillBuffer() in ControlTast, Core1
+uint32_t Voice::hunger() { // called by SamplerEngine::fillBuffer() in ControlTask, Core1
     if (!_active) return 0;
     if ( _eof) return 0;
     if ( _dying) return 0;
@@ -324,7 +323,7 @@ inline float Voice::getKillScore() { // called by SamplerEngine::assignVoice() a
 }
 
 
-inline void Voice::setPitch(float speedModifier) {
+inline void Voice::setPitch(float speedModifier) { // called by SamplerEngine::setPitch, Core1
   _speedModifier = speedModifier;
   _speed = _sampleFile.speed * speedModifier;
 }

@@ -52,7 +52,7 @@ inline void handleNoteOff(uint8_t inChannel, uint8_t inNote, uint8_t inVelocity)
     FastLED.show();
   #endif
   */
-  Sampler.noteOff(inNote, false);
+  Sampler.noteOff(inNote);
 }
 
 

@@ -7,7 +7,12 @@ void SamplerEngine::parseIni() {
   ini_range_t range;
   _template.clear();
   _ranges.clear();
-  // _mapping.clear();
+  variants_t grps;
+  for (int i = 0 ; i < 128; i++) {
+    for (int j = 0; j < ( ( MAX_NOTES_PER_GROUP - 1 ) * MAX_GROUPS_CROSSES ); j++) {
+      _groups[i][j] = 255; // empty groups
+    }
+  }
   _Card->rewindDir();
   int i, a, b;
   str256_t iniStr;
@@ -101,6 +106,7 @@ void SamplerEngine::parseIni() {
         break;
       case S_GROUP:
         // notes = c1,c2,c3
+        if (tok == "NOTES") {grps = parseVariants(iniStr); storeGroup(grps); continue; }
         break;
       case S_NONE:
       case S_SAMPLESET:
@@ -150,7 +156,7 @@ void SamplerEngine::parseIni() {
   //delay(1000);
 }
 
-eSection_t SamplerEngine::parseSection(str256_t& val) {
+eSection_t SamplerEngine::parseSection( str256_t& val ) {
   // S_NONE, S_SAMPLESET, S_FILENAME, S_ENVELOPE, S_NOTE, S_RANGE, S_GROUP };
   //DEB(val.c_str());
   int len = val.length();
@@ -165,7 +171,7 @@ eSection_t SamplerEngine::parseSection(str256_t& val) {
   return S_NONE;
 }
 
-bool SamplerEngine::parseBoolValue(str256_t& val) {
+bool SamplerEngine::parseBoolValue( str256_t& val ) {
   val.trim();
   val.toUpperCase();
   bool var = false;
@@ -175,7 +181,7 @@ bool SamplerEngine::parseBoolValue(str256_t& val) {
 }
 
 
-float SamplerEngine::parseFloatValue( str256_t& val) {
+float SamplerEngine::parseFloatValue( str256_t& val ) {
   val.trim();
   val.toUpperCase();
   float f = val.toFloat();
@@ -184,7 +190,7 @@ float SamplerEngine::parseFloatValue( str256_t& val) {
 }
 
 
-int SamplerEngine::parseIntValue( str256_t& val) {
+int SamplerEngine::parseIntValue( str256_t& val ) {
   val.trim();
   val.toUpperCase();
   int i = val.toInt();
@@ -193,7 +199,7 @@ int SamplerEngine::parseIntValue( str256_t& val) {
 }
 
 
-variants_t SamplerEngine::parseVariants( str256_t& val) {
+variants_t SamplerEngine::parseVariants( str256_t& val ) {
   DEBUG("INI: Parsing variants");
   variants_t vars;
   vars.clear();
@@ -214,6 +220,35 @@ variants_t SamplerEngine::parseVariants( str256_t& val) {
   }
   return vars;
 }
+
+
+void SamplerEngine::storeGroup( variants_t& vars ) {
+  uint8_t midi_note[MAX_NOTES_PER_GROUP];
+  int i=0;
+  uint8_t a_note;
+  for (auto & str: vars) {
+    midi_note[i] = midiNoteByName(str);
+    i++;
+  }
+  DEBUG();
+  for (int n = 0 ; n < i; n++) {
+    a_note = midi_note[n];
+ //   DEBF("INI: Placing group: midi_note %d\r\n", a_note);
+    for (int m = 0 ; m < ( ( MAX_NOTES_PER_GROUP - 1 ) * MAX_GROUPS_CROSSES ); m++) {
+      if (_groups[a_note][m] == 255) { // found an empty element
+        for (int j = 0; j < i; j++) {
+          if (midi_note[j] != a_note) {
+ //           DEBF("------- adding %d\r\n", midi_note[j]);
+            _groups[a_note][m] = midi_note[j];
+            m++;
+          }
+        }
+        break;
+      }
+    }
+  }
+} 
+
 
 void SamplerEngine::parseLimits( str256_t& val) {
   DEBUG("INI: Parsing velo limits");
@@ -326,6 +361,7 @@ bool SamplerEngine::parseFilenameTemplate(str256_t& line) {
   }
   return true;
 }
+
 
 void SamplerEngine::processNameParser(entry_t* entry) {
   int pos = 0;
@@ -520,7 +556,6 @@ void SamplerEngine::parseWavHeader(entry_t* wav_entry, sample_t& smp){
 }
 
 
-
 // fill gaps
 void SamplerEngine::finalizeMapping() {
   int x, y, dx, dy, xc, yc, s;
@@ -563,7 +598,7 @@ void SamplerEngine::finalizeMapping() {
       }
       break;
     case SMP_MELODIC:
-    default:
+    default: {
       // second pass
       for (int i = 0; i < _veloLayers; i++) {
         // going up
@@ -607,7 +642,7 @@ void SamplerEngine::finalizeMapping() {
           }
         }
       }
-      // VC_LINEAR, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER
+    }
   }
   // propagate params to individual samples
   for (int i = 0; i < _veloLayers; i++) {
@@ -623,7 +658,7 @@ void SamplerEngine::finalizeMapping() {
 }
 
 
-uint8_t SamplerEngine::midiNoteByName(str8_t noteName) {
+uint8_t SamplerEngine::midiNoteByName(str8_t noteNameOct) {
   int match_weight = 0;
   int len, note_num = -1;
   int oct = -3;
@@ -631,20 +666,20 @@ uint8_t SamplerEngine::midiNoteByName(str8_t noteName) {
     for (int k = 0 ; k < 12; k++) {
       str8_t a = notes[j][k];
       len = a.length();
-      str8_t b = noteName.substring(0,len);
+      str8_t b = noteNameOct.substring(0,len);
       if (a.equalsIgnoreCase(b) && len > match_weight) {
         match_weight = len;
         note_num = k;
       }
     }
   }
-  str8_t b = noteName.substring(match_weight, match_weight+2);
-  DEBF("INI: midiNoteByName string: [%s] note: [%d] oct: [%s] \r\n", noteName.c_str(), note_num, b.c_str());
+  str8_t b = noteNameOct.substring(match_weight, match_weight+2);
+ // DEBF("INI: midiNoteByName string: [%s] note: [%d] oct: [%s] \r\n", noteNameOct.c_str(), note_num, b.c_str());
   oct = b.toInt();
   if (oct>-2) {
     note_num+=(oct+1)*12;
   }
-  DEBUG(note_num);
+ // DEBUG(note_num);
   return note_num;
 }
 
@@ -665,4 +700,13 @@ void SamplerEngine::printMapping() {
     }
     DEBUG(".");
   }
+
+  for (int j = 0; j < ( ( MAX_NOTES_PER_GROUP - 1 ) * MAX_GROUPS_CROSSES ); j++) {
+    for (int i = 0 ; i < 128; i++) {
+       DEBF("%d\t", _groups[i][j] );
+    }
+    DEBUG(".");
+  }
+
+  
 }

@@ -9,6 +9,7 @@ void Adsr::init(float sample_rate, int blockSize) {
     decayTime_    = -1.f;
     releaseTime_  = -1.f;
     fastReleaseTime_  = -1.f;
+    semiFastReleaseTime_  = -1.f;
     sus_level_    = 1.0f;
     x_            = 0.0f;
     gate_         = false;
@@ -17,7 +18,8 @@ void Adsr::init(float sample_rate, int blockSize) {
     setTime(ADSR_SEG_ATTACK, 0.0f);
     setTime(ADSR_SEG_DECAY, 0.1f);
     setTime(ADSR_SEG_RELEASE, 0.05f);
-    setTime(ADSR_SEG_FAST_RELEASE, 0.0002f); // a few samples trying to avoid clicks
+    setTime(ADSR_SEG_FAST_RELEASE, 0.0002f); // a few samples fade, trying to avoid clicks on polyphony overrun
+    setTime(ADSR_SEG_SEMI_FAST_RELEASE, 0.02f); // for exclusive note groups voice stealing
 }
 
 
@@ -30,6 +32,7 @@ void Adsr::retrigger(eEnd_t hardness) {
       D0_ = attackD0_;
       break;
     case END_FAST:
+    case END_SEMI_FAST:
     case END_REGULAR:
     default:
       D0_ = attackD0_;
@@ -50,6 +53,11 @@ void Adsr::end(eEnd_t hardness) {
     case END_FAST:{
       mode_ = ADSR_SEG_FAST_RELEASE;
       D0_ = fastReleaseD0_;
+      break;
+    }
+    case END_SEMI_FAST:{
+      mode_ = ADSR_SEG_SEMI_FAST_RELEASE;
+      D0_ = semiFastReleaseD0_;
       break;
     }
     case END_REGULAR:
@@ -87,6 +95,11 @@ void Adsr::setTime(int seg, float time) {
         setTimeConstant(time, releaseTime_, releaseD0_);
       }
       break;
+    case ADSR_SEG_SEMI_FAST_RELEASE:
+      {
+        setTimeConstant(time, semiFastReleaseTime_, semiFastReleaseD0_);
+      }
+      break;
     case ADSR_SEG_FAST_RELEASE:
       {
         setTimeConstant(time, fastReleaseTime_, fastReleaseD0_);
@@ -121,8 +134,12 @@ void Adsr::setReleaseTime(float timeInS) {
   setTimeConstant(timeInS, releaseTime_, releaseD0_);
 }
 
-void Adsr::setfastReleaseTime(float timeInS) {
+void Adsr::setFastReleaseTime(float timeInS) {
   setTimeConstant(timeInS, fastReleaseTime_, fastReleaseD0_);
+}
+
+void Adsr::setSemiFastReleaseTime(float timeInS) {
+  setTimeConstant(timeInS, semiFastReleaseTime_, semiFastReleaseD0_);
 }
 
 
@@ -166,6 +183,7 @@ float Adsr::process() {
       }
       break;
     case ADSR_SEG_FAST_RELEASE:
+    case ADSR_SEG_SEMI_FAST_RELEASE:
       x_ += (float)D0_ * ((float)target_ - (float)x_);
       out = x_;
       if (out < 0.0f) {

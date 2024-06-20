@@ -3,6 +3,8 @@
 #define WAV_CHANNELS          2
 #define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4
 #define STR_LEN               MAX_CONFIG_LINE_LEN
+#define MAX_NOTES_PER_GROUP   3          // exclusive groups: e.g. Closed hat, Pedal hat and Open hat -- only one of them can play at a time
+#define MAX_GROUPS_CROSSES    1          // max possible exclusive groups interleaving (common is 1, no interleaves)
 
 #include <vector>
 #include <FixedString.h>
@@ -10,7 +12,7 @@
 #include "sdmmc.h"
 
 enum eVoiceAlloc_t  { VA_OLDEST, VA_MOST_QUIET, VA_PERCEPTUAL, VA_NUMBER }; // not implemented
-enum eVeloCurve_t   { VC_LINEAR, VC_CUSTOM, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // not implemented
+enum eVeloCurve_t   { VC_LINEAR, VC_CUSTOM, VC_SOFT1, VC_SOFT2, VC_SOFT3, VC_HARD1, VC_HARD2, VC_HARD3, VC_CONST, VC_NUMBER }; // VC_LINEAR, VC_CUSTOM implemented
 enum eItem_t        { P_NUMBER, P_NAME, P_MIDINOTE, P_OCTAVE, P_SEPARATOR, P_VELO, P_INSTRUMENT }; // filename template elements 
 enum eInstr_t       { SMP_MELODIC, SMP_PERCUSSIVE }; 
 enum eSection_t     { S_NONE, S_SAMPLESET, S_FILENAME, S_NOTE, S_RANGE, S_GROUP };
@@ -108,12 +110,13 @@ class SamplerEngine {
     inline float    getVolume()                           {return _amp;}
     inline float    getPano()                             {return _pano;}
     
+    void            storeGroup( variants_t& vars );
     void            setSustainLevel(float seconds);
     void            setAttackTime(float seconds);
     void            setDecayTime(float seconds);
     void            setReleaseTime(float seconds);
     inline void     noteOn(uint8_t midiNote, uint8_t velocity);
-    inline void     noteOff(uint8_t midiNote, bool hard = false);
+    inline void     noteOff(uint8_t midiNote, Adsr::eEnd_t end_type = Adsr::END_REGULAR);
     void            fillBuffer();
     
   private:
@@ -140,14 +143,15 @@ class SamplerEngine {
     void            printMapping();
     sample_t        _sampleMap[128][MAX_VELOCITY_LAYERS];
     midikey_t       _keyboard[128];
+    uint8_t         _groups[128][ ( ( MAX_NOTES_PER_GROUP - 1 ) * MAX_GROUPS_CROSSES ) ];      // each of 128 elements contains notes to shoot when it starts
     float           _ampCurve[128];       // velocity to amplification mapping [0.0 ... 1.0] to make seamless velocity response curve
     eVeloCurve_t    _veloCurve            = VC_LINEAR;
     uint8_t         _veloMap[128];
     uint8_t         _veloLayers           = 1;
     float           _divVeloLayers        = 1.0f;
     int             _sampleRate           = SAMPLE_RATE;
-    byte            _sampleChannels       = WAV_CHANNELS; // 2 = stereo, 1 = mono : use or not stereo data in sample files
-    byte            _maxVoices            = MAX_POLYPHONY; 
+    uint8_t         _sampleChannels       = WAV_CHANNELS; // 2 = stereo, 1 = mono : use or not stereo data in sample files
+    uint8_t         _maxVoices            = MAX_POLYPHONY; 
     int             _limitSameNotes       = MAX_SAME_NOTES;
     fname_t         _rootFolder           ;
     volatile int    _currentFolderId      = 0;
