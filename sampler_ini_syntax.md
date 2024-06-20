@@ -60,4 +60,4 @@ This section describes how the WAV files are self-mapped basing on the info pars
 *  limit_same_notes = ```integer``` - limits number of simultaneous same notes 
 
 ## Section [GROUP]
-* notes = ```comma separated strings```
+* notes = ```comma separated strings``` - exclusive groups are used to imitate the behavior of real instruments, e.g. only one of "closed hat" or "open hat" can sound at a time. Example: ```notes = F#1, G#1, A#1```
