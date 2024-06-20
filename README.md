@@ -83,6 +83,7 @@ sustainLevel = 1.0
 # Filename elements recognized:
 ; <NAME> - note name in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
 ; <OCTAVE> - octave number
+; <MIDINOTE> - sometimes sample file name contains midi note number
 ; <NUMBER> - parsed, but not used for now: i.e. some numbers initially used for naming, sorting or whatever
 ; <VELO> velocity layer
 ; <INSTR> instruments names (mostly percussion) used in filenames, initially they are collected from this ini file
@@ -139,6 +140,7 @@ sustainLevel = 1.0
 # Filename elements recognized:
 ; <NAME> - note name=name in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
 ; <OCTAVE> - octave number
+; <MIDINOTE> - sometimes sample file name contains midi note number
 ; <NUMBER> - parsed, but not used for now: i.e. some numbers initially used for naming, sorting or whatever
 ; <VELO> velocity layer
 ; <INSTR> instruments names (mostly percussion) used in filenames, initially they are collected from this ini file
@@ -155,10 +157,8 @@ veloVariants = 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
 [group]
 notes = F#1,A#1,G#1
 
-[group]
 notes = G#2,A2
 
-[group]
 notes = C#2,D2
 
 
