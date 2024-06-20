@@ -193,7 +193,7 @@ static void  IRAM_ATTR control_task(void *userData) { // core 1 task
 void setup() {
   
 #ifdef DEBUG_ON
-  USBSerial.begin(115200);
+  SerialPort.begin(115200);
 #endif
 
 delay(2000);

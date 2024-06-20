@@ -10,9 +10,12 @@ const float TWO_DIV_16383       = (2.0f / 16383.0f);
 
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
-// 1.0594630943592952645618252949463 // is a 12th root of 2 (pitch increase per semitone)
-// 1.05952207969042122905182367802396 // stretched tuning (plus 60 cents per 7 octaves)
-// converts semitones to speed: -12.0 semitones becomes 0.5, +12.0 semitones becomes 2.0
+
+#if ARDUINO_USB_CDC_ON_BOOT  //Serial used for USB CDC
+    HWCDC &SerialPort = Serial;
+#else
+    HWCDC &SerialPort = USBSerial;
+#endif
 
 #ifdef MIDI_VIA_SERIAL
   #undef DEBUG_ON
@@ -20,9 +23,9 @@ const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
 // debug macros
 #ifdef DEBUG_ON
-  #define DEB(...) USBSerial.print(__VA_ARGS__) 
-  #define DEBF(...)  USBSerial.printf(__VA_ARGS__)
-  #define DEBUG(...) USBSerial.println(__VA_ARGS__)
+  #define DEB(...)    SerialPort.print(__VA_ARGS__) 
+  #define DEBF(...)   SerialPort.printf(__VA_ARGS__)
+  #define DEBUG(...)  SerialPort.println(__VA_ARGS__)
 #else
   #define DEB(...)
   #define DEBF(...)
@@ -40,6 +43,10 @@ const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 #define TWOPI 6.2831853f
 #define ONE_DIV_TWOPI 0.159154943f 
 
+// 1.0594630943592952645618252949463 // is a 12th root of 2 (pitch increase per semitone)
+// 1.05952207969042122905182367802396 // stretched tuning (plus 60 cents per 7 octaves)
+
+// converts semitones to speed: -12.0 semitones becomes 0.5, +12.0 semitones becomes 2.0
 static __attribute__((always_inline)) inline float semitones2speed(float semitones) {
  // return powf(2.0f, semitones * 0.08333333f);
   return powf(1.059463f, semitones);
