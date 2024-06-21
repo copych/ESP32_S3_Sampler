@@ -1,10 +1,8 @@
 #pragma once
 
-#define WAV_CHANNELS          2
-#define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4
+#define WAV_CHANNELS          2           // do not change, not implemented
+#define MAX_CONFIG_LINE_LEN   256         // 4 < x < 256 , must be divisible by 4, no need to change this
 #define STR_LEN               MAX_CONFIG_LINE_LEN
-#define MAX_NOTES_PER_GROUP   3          // exclusive groups: e.g. Closed hat, Pedal hat and Open hat -- only one of them can play at a time
-#define MAX_GROUPS_CROSSES    1          // max possible exclusive groups interleaving (common is 1, no interleaves)
 
 #include <vector>
 #include <FixedString.h>
@@ -62,9 +60,9 @@ typedef struct {
   int         group         = -1;
   int         limit_same    = 2;
   float       attack_time   = 0.0f;
-  float       decay_time    = 0.5f;
+  float       decay_time    = 0.01f;
   float       sustain_level = 1.0f;
-  float       release_time  = 12.0f;
+  float       release_time  = 0.05f;
 } midikey_t;
 
 typedef struct {

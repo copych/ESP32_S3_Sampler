@@ -93,6 +93,10 @@ inline void SamplerEngine::noteOn(uint8_t midiNote, uint8_t velo){
   if (smp.channels > 0) {
    // DEBF("SAMPLER: voice %d note %d velo %d\r\n", i, midiNote, velo);
     Voices[i].setStarted(false);
+    Voices[i].setAttackTime(_keyboard[midiNote].attack_time);
+    Voices[i].setDecayTime(_keyboard[midiNote].decay_time);
+    Voices[i].setReleaseTime(_keyboard[midiNote].release_time);
+    Voices[i].setSustainLevel(_keyboard[midiNote].sustain_level);
     Voices[i].start(_sampleMap[midiNote][mapVelo(velo)], midiNote, velo);
   } else {
     DEBUG("SAMPLER: no sample assigned");
@@ -126,52 +130,49 @@ inline void SamplerEngine::setSustain(bool onoff) {
 }
 
 
-
-
 void SamplerEngine::setAttackTime(float val) {
-  for (int i = 0; i < _veloLayers; i++) {
-    for (int j = 0 ; j < 128; j++ ) {
-      _sampleMap[j][i].attack_time = val;
-    }
+  for (int i = 0 ; i < 128; i++ ) {
+    _keyboard[i].attack_time = val;
   }
-  for (int i = 0; i < _maxVoices; i++) {
-    Voices[i].setAttackTime(val);    
+#ifdef ADSR_LIVE_UPDATE
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    Voices[i].setAttackTime(val);
   }
+#endif
 }
 
 void SamplerEngine::setDecayTime(float val) {
-  for (int i = 0; i < _veloLayers; i++) {
-    for (int j = 0 ; j < 128; j++ ) {
-      _sampleMap[j][i].decay_time = val;
-    }
+  for (int i = 0; i < 128; i++) {
+    _keyboard[i].decay_time = val;
   }
-  for (int i = 0; i < _maxVoices; i++) {
-    Voices[i].setDecayTime(val);    
+#ifdef ADSR_LIVE_UPDATE
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    Voices[i].setDecayTime(val);
   }
+#endif
 }
 
 void SamplerEngine::setReleaseTime(float val) {
-  for (int i = 0; i < _veloLayers; i++) {
-    for (int j = 0 ; j < 128; j++ ) {
-      _sampleMap[j][i].release_time = val;
-    }
+  for (int i = 0; i < 128; i++) {
+    _keyboard[i].release_time = val;
   }
-  for (int i = 0; i < _maxVoices; i++) {
-    Voices[i].setReleaseTime(val);    
+#ifdef ADSR_LIVE_UPDATE
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    Voices[i].setReleaseTime(val);
   }
+#endif
 }
 
 void SamplerEngine::setSustainLevel(float val) {
-  for (int i = 0; i < _veloLayers; i++) {
-    for (int j = 0 ; j < 128; j++ ) {
-      _sampleMap[j][i].sustain_level = val;
-    }
+  for (int i = 0; i < 128; i++) {
+    _keyboard[i].sustain_level = val;
   }
-  for (int i = 0; i < _maxVoices; i++) {
-    Voices[i].setSustainLevel(val);    
+#ifdef ADSR_LIVE_UPDATE
+  for (int i = 0 ; i < MAX_POLYPHONY ; i++) {
+    Voices[i].setSustainLevel(val);
   }
+#endif
 }
-
 
 uint8_t SamplerEngine::mapVelo(uint8_t velo) {
   switch(_veloCurve) {
@@ -286,10 +287,12 @@ void SamplerEngine::resetSamples() {
       _sampleMap[j][i].amp = 1.0;
       _sampleMap[j][i].speed = 0.0f;
       _sampleMap[j][i].bit_depth = 0;
+      /*
       _sampleMap[j][i].attack_time   = _attackTime;
       _sampleMap[j][i].decay_time    = _decayTime;
       _sampleMap[j][i].sustain_level = _sustainLevel;
       _sampleMap[j][i].release_time  = _releaseTime;
+      */
       _sampleMap[j][i].native_freq  = false;
     }
   }

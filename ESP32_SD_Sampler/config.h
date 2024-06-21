@@ -23,8 +23,10 @@
 #define SACRIFY_VOICES        2           // voices used for smooth transisions to avoid clicks
 #define MAX_SAME_NOTES        2           // number of voices allowed playing the same note
 #define MAX_VELOCITY_LAYERS   16
+#define MAX_NOTES_PER_GROUP   3           // exclusive groups: e.g. Closed hat, Pedal hat and Open hat -- only one of them can play at a time
+#define MAX_GROUPS_CROSSES    1           // max possible exclusive groups interleaving (common is 1, meaning no interleavings)
 #define MAX_DISTANCE_STRETCH  2           // max distance in semitones to search for an absent sample by changing speed of neighbour files
-
+//#define ADSR_LIVE_UPDATE                  // if you set this param, the notes being played will get the updates along with CC changes (may produce some hisses)
 
 //******************************************************* PINS **********************************************
 #if defined(CONFIG_IDF_TARGET_ESP32S3)

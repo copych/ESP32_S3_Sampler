@@ -39,10 +39,10 @@ typedef struct {
   int       channels      = -1;
   int       bit_depth     = -1;
   float     amp           = 1.0f;
-  float     attack_time   = 0.0f;
-  float     decay_time    = 0.5f;
-  float     sustain_level = 1.0f;
-  float     release_time  = 12.0f;
+//  float     attack_time   = 0.0f;
+//  float     decay_time    = 0.5f;
+//  float     sustain_level = 1.0f;
+//  float     release_time  = 12.0f;
   int       loop_mode     = 0; // 0 = none,  1 = forward
   int32_t   loop_first_smp= -1;
   int32_t   loop_last_smp = -1;

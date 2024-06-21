@@ -42,7 +42,7 @@ CC 102 - 119
 #define CC_REVERB_TIME  87 // +
 #define CC_REVERB_LVL   88 // +
 
-#define CC_REVERB_SEND  91
+#define CC_REVERB_SEND  91 // +
 #define CC_DELAY_SEND   92
 #define CC_OVERDRIVE    93
 #define CC_DISTORTION   94

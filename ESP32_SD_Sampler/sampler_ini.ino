@@ -72,48 +72,30 @@ void SamplerEngine::parseIni() {
         break;
       case S_NOTE:
       case S_RANGE:
-        // name = C2
         if (tok == "NAME") {range.first = midiNoteByName(iniStr); range.last = range.first; continue;}
-        // or
-        // first = C2
-        if (tok == "FIRST") {range.first = midiNoteByName(iniStr); continue;}
-        // last = F3
-        if (tok == "LAST") {range.last = midiNoteByName(iniStr); continue;}
-        // instr = Tom4
+        if (tok == "FIRST" || tok == "FIRST_NOTE" || tok == "FIRSTNOTE") {range.first = midiNoteByName(iniStr); continue;}
+        if (tok == "LAST" || tok == "LAST_NOTE" || tok == "LASTNOTE") {range.last = midiNoteByName(iniStr); continue;}
         if (tok == "INSTR") {range.instr = iniStr; continue;}
-        // noteoff = 0
         if (tok == "NOTEOFF" || tok == "NOTE_OFF") {range.noteoff = parseBoolValue(iniStr); continue;}
-        // speed = 1.15
         if (tok == "SPEED") {range.speed = parseFloatValue(iniStr); continue;}
-        // limit_same_note = 1 // sometimes it makes sense to limit different instruments or notes differently (percussive sets, sound effects)
-        // affects _keyboard[]
         if (tok == "LIMIT_SAME_NOTES" || tok == "LIMIT_SAME_NOTE" || tok == "LIMITSAMENOTE" || tok == "LIMITSAMENOTES") {
            range.limit_same = min(MAX_POLYPHONY, parseIntValue(iniStr));
            if (range.limit_same == 0 ) range.limit_same = MAX_POLYPHONY;
            continue;
         }
-        // attack_time = 12
         if (tok == "ATTACKTIME" || tok == "ATTACK_TIME") {range.attack_time = parseFloatValue(iniStr); continue;}
-        // decayTime = 0.05
         if (tok == "DECAYTIME" || tok == "DECAY_TIME") {range.decay_time = parseFloatValue(iniStr); continue;}
-        // releaseTime = 12.0
         if (tok == "RELEASETIME" || tok == "RELEASE_TIME") {range.release_time = parseFloatValue(iniStr); continue;}
-        // sustainLevel = 1.0
         if (tok == "SUSTAINLEVEL" || tok == "SUSTAIN_LEVEL") {range.sustain_level = parseFloatValue(iniStr); continue;}
-        
-        // loop = true // simple all-file infinite forward loop 
         if (tok == "LOOP" || tok == "AUTOREPEAT" || tok == "REPEAT" || tok == "CYCLE" ) {range.loop = parseBoolValue(iniStr); continue;}
         break;
       case S_GROUP:
-        // notes = c1,c2,c3
         if (tok == "NOTES") {grps = parseVariants(iniStr); storeGroup(grps); continue; }
         break;
       case S_NONE:
       case S_SAMPLESET:
       default:
-        // title = Coda88 Piano 
         if (tok == "TITLE") {_title = iniStr; continue;}
-        // type=melodic 
         if (tok == "TYPE") {
           _type = parseInstrType(iniStr);
           for (int i=0; i<128; ++i) {
@@ -121,12 +103,8 @@ void SamplerEngine::parseIni() {
           }
           continue;
         }
-        // normalized=true 
         if (tok == "NORMALIZED") {_normalized = parseBoolValue(iniStr); continue;}
-        // amp = 1.1 // 10% "louder"
         if (tok == "AMP" || tok == "AMPLIFY") {_amp = parseFloatValue(iniStr); continue;}
-        // limit_same_note = 0 // 0 = unlimited same note triggering, 1 and more limits simultanous sounding of same notes
-        // affects _keyboard[]
         if (tok == "LIMIT_SAME_NOTES" || tok == "LIMIT_SAME_NOTE" || tok == "LIMITSAMENOTE" || tok == "LIMITSAMENOTES") {
           _limitSameNotes = min(MAX_POLYPHONY, parseIntValue(iniStr));
           if (_limitSameNotes == 0) _limitSameNotes = MAX_POLYPHONY;
@@ -135,16 +113,10 @@ void SamplerEngine::parseIni() {
           }
           continue;
         }
-        // max_voices = 12 // sometimes you may want to overwrite polyphony setting, but it will be no more than #defime MAX_POLYPHONY
         if (tok == "MAX_VOICES" || tok == "MAX_POLYPHONY" || tok == "MAXPOLYPHONY" || tok == "MAXVOICES" || tok == "POLYPHONY") {_maxVoices = min(MAX_POLYPHONY, parseIntValue(iniStr)); continue;}
-        
-        // attackTime = 0.0
         if (tok == "ATTACKTIME" || tok == "ATTACK_TIME") {_attackTime = parseFloatValue(iniStr); setAttackTime(_attackTime); continue;}
-        // decayTime = 0.05
         if (tok == "DECAYTIME" || tok == "DECAY_TIME") {_decayTime = parseFloatValue(iniStr); setDecayTime(_decayTime); continue;}
-        // releaseTime = 12.0
         if (tok == "RELEASETIME" || tok == "RELEASE_TIME") {_releaseTime = parseFloatValue(iniStr); setReleaseTime(_releaseTime); continue;}
-        // sustainLevel = 1.0
         if (tok == "SUSTAINLEVEL" || tok == "SUSTAIN_LEVEL") {_sustainLevel = parseFloatValue(iniStr); setSustainLevel(_sustainLevel); continue;}
         break;
     }    
@@ -157,7 +129,6 @@ void SamplerEngine::parseIni() {
 }
 
 eSection_t SamplerEngine::parseSection( str256_t& val ) {
-  // S_NONE, S_SAMPLESET, S_FILENAME, S_ENVELOPE, S_NOTE, S_RANGE, S_GROUP };
   //DEB(val.c_str());
   int len = val.length();
   val.remove(len-1);  // remove closing "]" 
@@ -463,7 +434,7 @@ void SamplerEngine::processNameParser(entry_t* entry) {
           if (match_weight>0) {
             pos += match_weight;
           } else {
-            DEBUG("INI: Couldn't match instrument name");    
+            DEBF("INI: Couldn't match instrument name [%s] in %s\r\n", instr.c_str(), fname.c_str());    
           }
         }
       case P_OCTAVE:
@@ -649,10 +620,12 @@ void SamplerEngine::finalizeMapping() {
     for (int j = 0 ; j < 128; j++ ) {
       _sampleMap[j][i].speed         *= _keyboard[j].tuning;
       _sampleMap[j][i].amp           *= _amp;
+      /*
       _sampleMap[j][i].attack_time    = _keyboard[j].attack_time;
       _sampleMap[j][i].decay_time     = _keyboard[j].decay_time;
       _sampleMap[j][i].sustain_level  = _keyboard[j].sustain_level;
       _sampleMap[j][i].release_time   = _keyboard[j].release_time;
+      */
     }
   }
 }
