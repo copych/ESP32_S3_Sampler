@@ -3,7 +3,31 @@ ESP32-S3 SD Sampler is a polyphonic music synthesizer, which can play PCM WAV sa
 Simple: one directory = one sample set. Plain text "sampler.ini" manages how samples to be spread over the keyboard.
 The main difference, comparing to the projects available on the net, is that this sampler WON'T try to preload all the stuff into the RAM/PSRAM to play it on demand. So it's not limited in this way by the size of the memory chip and can take really huge (per-note true sampled multi-velocity several gigabytes) sample sets. It only requires that the card is freshly formatted FAT32 and has no or very few bad blocks (actually it requires that the WAV files are written with little or no fragmentation at all). On start it analyzes existing file allocation table (FAT) and forms it's own sample lookup table to be able to access data immediately, using SDMMC with a 4-bit wide bus.
 
-
+# Features
+* Easy to build and to customize Arduino code for ESP32S3
+* Hardware would cost you about $15, including a microSD card
+* Audio output is 44100Hz 16bit stereo
+* Direct read-only access to the sample sets on an SD/microSD card: it's based on custom sdmmc routines and it's fast
+* Size of a sample set is only limited by the card size
+* Polyphony of 15-20 stereo voices depending on your card's specs
+* 16/24 bit WAV files supported
+* Melodic and percussive sample sets supported
+* ADSR envelope, per-note configurable
+* Built-in Reverb FX
+* MIDI control currently supports the following messages:
+    * Note On
+    * Note Off
+    * Sustain (CC64)
+    * Pitchbend
+    * Attack time (CC73)
+    * Release time (CC72)
+    * Decay time (CC75)
+    * Sustain level (CC76)
+    * Reverb time (CC87)
+    * Reverb level (CC88)
+    * Reverb send (CC91)
+* Human readable SAMPLER.INI controls initial parameters of a sample set globally, per-range and per-note
+  
 # YouTube Video
 
 [![Video](https://img.youtube.com/vi/6Oe6QPwk1ak/maxresdefault.jpg)](https://youtu.be/6Oe6QPwk1ak?feature=shared)
@@ -33,23 +57,6 @@ PS. Of what I have tested, faster cards won't give you dramatical improvement in
 # Velocity layers
 There are currently 16 velocity layers (i.e. dynamic variants of each sampled note) which corresponds to the maximum count that I have found (https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html).
 
-# Audio FX
-Reverb is implemented and controllable via midi.
-Depending on the remaining memory and CPU cycles it's possible to add the effects to the chain.
-
-# TODO
-The state of the project has not gone far from POC, so don't you expect a ready-made perfect sampler.
-What's not working:
-* <s>On polyphony overrun there are some audible clicks, it should retrig voices in a more delicate way.</s> Seems to be fixed now.
-* Hairless MIDI doesn't work on LOLIN S3 Pro, but works on a generic board.
-* Velocity routines are not fully implemented.
-* Looping of any kind is not implemented.
-* <s>Envelope params are hard-coded</s> Ini settings + midi CC 
-* <s>SAMPLER.INI syntax has to be developed much further.</s> Basic syntax is done now. Work in progress.
-* <s>Only a simple reverb effect is implemented as a POC with hard-coded params</s>. Reverb is now controlled via midi CC.
-* It lacks schematics, but, please, check the .h files and /media folder for the connectivity info.
-* <s>16, 24</s> and 32 bit samples support. 16 and 24 bits PCM are now supported.
-* <s>Demo video shall be done</s>
 
 # SAMPLER.INI and examples
 One should put the sampler.ini file to the same folder where the corresponding WAV files are stored. 
