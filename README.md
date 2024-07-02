@@ -32,15 +32,22 @@ The main difference, comparing to the projects available on the net, is that thi
 
 [![Video](https://img.youtube.com/vi/6Oe6QPwk1ak/maxresdefault.jpg)](https://youtu.be/6Oe6QPwk1ak?feature=shared)
 
+# How To Build the Thing
+* You need ```Arduino IDE``` installed, preferrably, version 1.8.x. (Version 2.x.x will probably also work, but you may face some unexpected issues)
+* Next is ```ESP32 Arduino core```, version 2.0.17 seems to be the best choice (as for June 2024)
+* Libraries required are:    
+    * ```Fixed string library``` https://github.com/fatlab101/FixedString
+    * ```Arduino MIDI library``` https://github.com/FortySevenEffects/arduino_midi_library
+    * [optionally] If you want to use RGB LEDs, then also ```FastLED library``` is needed https://github.com/FastLED/FastLED
+* Download the [zipped code](https://github.com/copych/ESP32_S3_Sampler/archive/refs/heads/main.zip) or use git commands to get the project files
+* Unpack and place ```ESP32_SD_Sampler``` folder to your Arduino projects directory
+* Open ```ESP32_SD_Sampler.ino``` file with Arduino IDE
+* Connect your board via USB to your computer, select the corresponding ```port``` in the ```Tools``` menu and press the ```Upload``` button in the Arduino IDE
 
 # Is it possible to run on ESP32 not S3?
 For the time being the sampler only supports S3 variant. 
 It's possible to rearrange classes in order to allocate members dynamically, and run it on an ESP32, but ESP32 has a strong limitation: memory segmentation (SRAM0, SRAM1, SRAM2 and segments within these parts like BSS, IRAM, DRAM etc) is hardware defined and has different performance. So it's quite a challenge to fit all the objects and buffers in appropriate memory regions. I have tried and managed to compile, but the performance was much worse so I rolled back. If someone would like to, please fork the repository and try.
 
-# Dependencies
-* Fixed string library https://github.com/fatlab101/FixedString
-* Arduino MIDI library https://github.com/FortySevenEffects/arduino_midi_library
-* If you want to use RGB LEDs, then also FastLED library is needed https://github.com/FastLED/FastLED
 
 # Polyphony
 The maximum number of simultaneously sounding voices mainly depends on the following four factors:
