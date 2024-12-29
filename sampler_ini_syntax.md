@@ -47,16 +47,19 @@ This section describes how the WAV files are self-mapped basing on the info pars
 ## <s>Section [ENVELOPE]</s> no longer supported, moved to [sampleset]
 
 ## Sections [RANGE] and [NOTE]
-*  name = ```string```
-*  first = ```string```
-*  last = ```string```
-*  instr = ```string```
-*  noteoff = ```boolean```
-*  speed = ```float```
-*  attack_time = ```float```
-*  decay_time = ```float```
-*  release_time = ```float```
-*  sustain_level = ```float```
+You should provide either
+*  name = ```string``` - note name in sharp (#) or flat(b) notation, i.e. both Eb and D# are valid
+or borders:
+*  first = ```string``` - first note of the range
+*  last = ```string``` - last note of the range
+Here is the supported parameters list:
+*  instr = ```string``` - this should be the instrument names used in your samples' filenames 
+*  noteoff = ```boolean``` - if the note/range is triggered by noteOff events
+*  speed = ```float``` - 'tuning'
+*  attack_time = ```float``` - ADSR attack time
+*  decay_time = ```float``` - ADSR decay time
+*  release_time = ```float``` - ADSR release time
+*  sustain_level = ```float``` - ADSR sustain level [0.0 .. 1.0]
 *  limit_same_notes = ```integer``` - limits number of simultaneous same notes 
 
 ## Section [GROUP]
