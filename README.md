@@ -1,3 +1,5 @@
+!Attention! ESP Arduino cores v.3.1.2 and 3.1.3 have some bug that won't allow i2s driver to install when PSRAM is enabled, please, avoid using these versions!
+
 # ESP32-S3 SD Sampler
 ESP32-S3 SD Sampler is a polyphonic music synthesizer, which can play PCM WAV samples directly from an SD (microSD) card connected to an ESP32-S3.
 Simple: one directory = one sample set. Plain text "sampler.ini" manages how samples to be spread over the keyboard.
