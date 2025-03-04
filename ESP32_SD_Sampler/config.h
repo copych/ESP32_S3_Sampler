@@ -34,7 +34,7 @@
 //******************************************************* PINS **********************************************
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 // ESP32 S3
- #define RGB_LED         38      // RGB LED as a vital sign
+// #define RGB_LED         38      // RGB LED as a vital sign
   #define MIDIRX_PIN      4       // this pin is used for input when MIDI_VIA_SERIAL2 defined (note that default pin 17 won't work with PSRAM)
   #define MIDITX_PIN      9       // this pin will be used for output (not implemented yet) when MIDI_VIA_SERIAL2 defined
   #define I2S_BCLK_PIN    5       // I2S BIT CLOCK pin (BCL BCK CLK)
