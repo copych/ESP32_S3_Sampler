@@ -1,7 +1,7 @@
 #pragma once
 
 //******************************************************* DEBUG **********************************************
-#define DEBUG_ON
+// #define DEBUG_ON
 //#define DEBUG_CORE_TIME
 //#define C_MAJOR_ON_START                // play C major chord on startup (testing) and on folder change
 
@@ -10,15 +10,15 @@
 #define SAMPLE_RATE           44100       // audio output sampling rate
 
 //#define MIDI_VIA_SERIAL                   // use this option to enable Hairless MIDI on Serial port @115200 baud (USB connector), THIS WILL BLOCK SERIAL DEBUGGING
-// #define MIDI_VIA_SERIAL2                  // use this option if you want to operate by standard MIDI @31250baud, UART2 (Serial2), 
-#define MIDI_USB_DEVICE                     // use this option if you want to operate via USB with the sampler seen as a MIDI device (-50 kBytes of available RAM)
+ #define MIDI_VIA_SERIAL2                  // use this option if you want to operate by standard MIDI @31250baud, UART2 (Serial2), 
+// #define MIDI_USB_DEVICE                     // use this option if you want to operate via USB with the sampler seen as a MIDI device (-50 kBytes of available RAM)
 
 #define RECEIVE_MIDI_CHAN     1
 
 //******************************************************* FILESYSTEM **********************************************
 #define INI_FILE              "sampler.ini"
 #define ROOT_FOLDER           "/"         // only </> is supported yet
-#define READ_BUF_SECTORS      4           // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
+#define READ_BUF_SECTORS      7           // that many sectors (assume 512 Bytes) per read operation, the more, the faster it reads
 
 
 //******************************************************* SAMPLER **********************************************
