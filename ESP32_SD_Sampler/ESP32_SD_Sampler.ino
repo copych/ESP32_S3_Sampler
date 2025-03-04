@@ -1,4 +1,4 @@
-/*
+ /*
 * ESP32-S3 SD Sampler is a polyphonic music synthesizer, which can play PCM WAV samples directly from an SD (microSD) 
 * card connected to an ESP32-S3. Simple: one directory = one sample set. Plain text "sampler.ini" manages how samples 
 * to be spread over the keyboard. The main difference, comparing to the projects available on the net, is that this 
@@ -20,6 +20,7 @@
 * More info:
 * https://github.com/copych/ESP32_S3_Sampler
 */
+#pragma GCC optimize ("Os")
 
 #include <Arduino.h>
 #include "config.h"
@@ -40,6 +41,10 @@ CRGB leds[1];
 //SET_LOOP_TASK_STACK_SIZE(80000);
 
 // =============================================================== MIDI interfaces ===============================================================
+#ifdef MIDI_USB_DEVICE
+  #include "src/usbmidi/src/USB-MIDI.h"
+  USBMIDI_CREATE_INSTANCE(0, MIDI_usbDev);
+#endif
 
 #ifdef MIDI_VIA_SERIAL
 
@@ -48,8 +53,8 @@ CRGB leds[1];
     static const bool Use1ByteParsing = false;
   };
 
-  MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings> serialMIDI(Serial);
-  MIDI_NAMESPACE::MidiInterface<MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>> MIDI((MIDI_NAMESPACE::SerialMIDI<HardwareSerial, CustomBaudRateSettings>&)serialMIDI);
+  MIDI_NAMESPACE::SerialMIDI<MIDI_PORT_TYPE, CustomBaudRateSettings> serialMIDI(MIDI_PORT);
+  MIDI_NAMESPACE::MidiInterface<MIDI_NAMESPACE::SerialMIDI<MIDI_PORT_TYPE, CustomBaudRateSettings>> MIDI((MIDI_NAMESPACE::SerialMIDI<MIDI_PORT_TYPE, CustomBaudRateSettings>&)serialMIDI);
 
 #endif
 
@@ -74,25 +79,25 @@ FxReverb        Reverb;
 // =============================================================== GLOBALS ===============================================================
 TaskHandle_t SynthTask;
 TaskHandle_t ControlTask;
-static int DRAM_ATTR out_buf_id = 0;
-static int DRAM_ATTR gen_buf_id = 1;
-static float DRAM_ATTR sampler_l[2][DMA_BUF_LEN];     // sampler L buffer
-static float DRAM_ATTR sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
-static float DRAM_ATTR mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
-static float DRAM_ATTR mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
-static int16_t DRAM_ATTR out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
+static volatile int DRAM_ATTR WORD_ALIGNED_ATTR out_buf_id = 0;
+static volatile int DRAM_ATTR WORD_ALIGNED_ATTR gen_buf_id = 1;
+static float DRAM_ATTR WORD_ALIGNED_ATTR sampler_l[2][DMA_BUF_LEN];     // sampler L buffer
+static float DRAM_ATTR WORD_ALIGNED_ATTR sampler_r[2][DMA_BUF_LEN];     // sampler R buffer
+static float DRAM_ATTR WORD_ALIGNED_ATTR mix_buf_l[2][DMA_BUF_LEN];     // mix L channel
+static float DRAM_ATTR WORD_ALIGNED_ATTR mix_buf_r[2][DMA_BUF_LEN];     // mix R channel
+static int16_t DRAM_ATTR WORD_ALIGNED_ATTR out_buf[2][DMA_BUF_LEN * 2];        // i2s L+R output buffer
 
 
 // =============================================================== forward declarations ===============================================================
 static  void IRAM_ATTR mixer() ;
-static  void IRAM_ATTR i2s_output ();
+static  void IRAM_ATTR i2s_output();
 static  void IRAM_ATTR sampler_generate_buf();
 
 // =============================================================== PER CORE TASKS ===============================================================
 static void IRAM_ATTR audio_task(void *userData) { // core 0 task
   DEBUG ("core 0 audio task run");
   vTaskDelay(20);
-  volatile uint32_t t1,t2,t3,t4;
+  volatile uint32_t WORD_ALIGNED_ATTR t1,t2,t3,t4;
   out_buf_id = 0;
   gen_buf_id = 1;
   
@@ -152,9 +157,10 @@ static void IRAM_ATTR audio_task(void *userData) { // core 0 task
 }
  
 static void  IRAM_ATTR control_task(void *userData) { // core 1 task
+  byte hue=0;
   DEBUG ("core 1 control task run");
   vTaskDelay(20);
-  static uint32_t passby = 0;
+  uint32_t WORD_ALIGNED_ATTR passby = 0;
 
   while (true) { 
 
@@ -170,16 +176,21 @@ static void  IRAM_ATTR control_task(void *userData) { // core 1 task
       MIDI2.read();
     #endif
     
+    #ifdef MIDI_USB_DEVICE
+      MIDI_usbDev.read();
+    #endif
+    
     passby++;
 
-    if (passby%16 == 0 ) { 
+    if (passby%256 == 0 ) { 
     
       processButtons();
       taskYIELD();
       
       #ifdef RGB_LED
-      leds[0].setHue(Sampler.getActiveVoices()*30); 
-      FastLED.show();
+      hue++;
+      leds[0].setHue(hue); 
+      FastLED.show(1);
       #endif
       
     //  DEBF("Active voices %d of %d \r\n", Sampler.getActiveVoices(), MAX_POLYPHONY);
@@ -193,16 +204,31 @@ static void  IRAM_ATTR control_task(void *userData) { // core 1 task
 void setup() {
   
 #ifdef DEBUG_ON
-  SerialPort.begin(115200);
+  DEBUG_PORT.begin(115200);
+#endif
+
+#ifdef RGB_LED
+  FastLED.addLeds<WS2812, RGB_LED, RGB>(leds, 1);
+  FastLED.setBrightness(1);
+#endif
+
+#ifdef RGB_LED
+  leds[0].setHue(HUE_RED); //green
+  FastLED.show(1);
 #endif
 
 delay(2000);
 
 #ifdef RGB_LED
-  FastLED.addLeds<WS2812, RGB_LED, GRB>(leds, 1);
-  FastLED.setBrightness(1);
+  leds[0].setHue(HUE_PURPLE); //green
+  FastLED.show(1);
 #endif
-  
+
+DEBUG("I2S: INIT");
+  i2sInit();
+
+DEBUG("MIDI: INIT");
+  MidiInit();
 
 DEBUG("CARD: BEGIN");
   Card.begin();
@@ -213,45 +239,37 @@ DEBUG("CARD: BEGIN");
 DEBUG("REVERB: INIT");
   Reverb.Init();
  
-DEBUG("MIDI: INIT");
-  MidiInit();
+  
 DEBUG("SAMPLER: INIT");
-
   Sampler.init(&Card);
   
-  Sampler.setCurrentFolder(3);
+  Sampler.setCurrentFolder(1);
 
-DEBUG("I2S: INIT");
-  i2sInit();
   
   initButtons();
   
-  xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 28, &SynthTask, 0 );
+  xTaskCreatePinnedToCore( audio_task, "SynthTask", 4000, NULL, 20, &SynthTask, 0 );
  
-  xTaskCreatePinnedToCore( control_task, "ControlTask", 8000, NULL, 20, &ControlTask, 1 );
+  xTaskCreatePinnedToCore( control_task, "ControlTask", 9000, NULL, 3, &ControlTask, 1 );
 
-  #ifdef C_MAJOR_ON_START
-  delay(100);
-  Sampler.noteOn(60,100);
-  Sampler.noteOn(64,100);
-  Sampler.noteOn(67,100);
-  delay(1000);
-  Sampler.noteOff(60, false);
-  Sampler.noteOff(64, false);
-  Sampler.noteOff(67, false);
-  #endif
+  Reverb.SetLevel(0.5f);
+  Reverb.SetTime(0.7f);
+  Sampler.setReverbSendLevel(0.5f);
+  
+  c_major();
+
   DEBUG ("Setup() DONE");
  // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+ 
+#ifdef RGB_LED
+  leds[0].setHue(HUE_GREEN); //green
+  FastLED.show(1);
+#endif
 }
 
 
 void loop() {
 
-#ifdef RGB_LED
-  leds[0].setHue(1); //green
-  FastLED.setBrightness(1);
-  FastLED.show();
-#endif
 
   vTaskDelete(NULL);
 }

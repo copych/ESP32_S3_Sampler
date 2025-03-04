@@ -1,7 +1,7 @@
 #pragma once
 
 #define DMA_NUM_BUF 2                     // number of I2S buffers, 2 should be enough
-#define DMA_BUF_LEN 32                    // length of I2S buffers use 8 samples or more
+#define DMA_BUF_LEN 64                    // length of I2S buffers use 8 samples or more
 #define FASTLED_INTERNAL                  // remove annoying pragma messages
 
 const float MIDI_NORM           = (1.0f / 127.0f);
@@ -10,22 +10,37 @@ const float TWO_DIV_16383       = (2.0f / 16383.0f);
 
 const float DIV_SAMPLE_RATE = 1.0f/(float)(SAMPLE_RATE);
 
+#if (defined ARDUINO_LOLIN_S3_PRO)
+  #undef BOARD_HAS_UART_CHIP
+#endif
 
-#if ARDUINO_USB_CDC_ON_BOOT  //Serial used for USB CDC
-    HWCDC &SerialPort = Serial;
+
+#ifdef MIDI_VIA_SERIAL || MIDI_USB_DEVICE
+  //#undef DEBUG_ON
+#endif
+
+#if (defined BOARD_HAS_UART_CHIP)
+  #define MIDI_PORT_TYPE HardwareSerial
+  #define MIDI_PORT Serial
+  #define DEBUG_PORT Serial
 #else
-    HWCDC &SerialPort = USBSerial;
+  #if (ESP_ARDUINO_VERSION_MAJOR < 3)
+    #define MIDI_PORT_TYPE HWCDC
+    #define MIDI_PORT USBSerial
+    #define DEBUG_PORT Serial
+  #else
+    #define MIDI_PORT_TYPE HardwareSerial
+    #define MIDI_PORT Serial
+    #define DEBUG_PORT Serial
+  #endif
 #endif
 
-#ifdef MIDI_VIA_SERIAL
-  #undef DEBUG_ON
-#endif
 
 // debug macros
-#ifdef DEBUG_ON
-  #define DEB(...)    SerialPort.print(__VA_ARGS__) 
-  #define DEBF(...)   SerialPort.printf(__VA_ARGS__)
-  #define DEBUG(...)  SerialPort.println(__VA_ARGS__)
+#ifdef DEBUG_ON 
+  #define DEB(...)    DEBUG_PORT.print(__VA_ARGS__) 
+  #define DEBF(...)   DEBUG_PORT.printf(__VA_ARGS__)
+  #define DEBUG(...)  DEBUG_PORT.println(__VA_ARGS__)
 #else
   #define DEB(...)
   #define DEBF(...)
@@ -121,9 +136,9 @@ static const float shaper_tbl[TABLE_SIZE+1] {
   0.998894443f, 0.999191037f, 0.999408086f, 0.999566912f, 0.999683128f, 0.999768161f, 0.999830378f, 0.999875899f , 0.999909204f };
 
 inline float lookupTable(const float (&table)[TABLE_SIZE+1], float index ) { // lookup value in a table by float index, using linear interpolation
-  static float v1, v2, res;
-  static int32_t i;
-  static float f;
+  float v1, v2, res;
+  int32_t i;
+  float f;
   i = (int32_t)index;
   f = (float)index - i;
   v1 = (table)[i];
@@ -141,7 +156,7 @@ inline float fast_shape(float x) {
     if (x >= 4.95f) {
       return sign; // tanh(x) ~= 1, when |x| > 4
     }
-  return  sign * lookupTable(shaper_tbl, (x*SHAPER_LOOKUP_COEF)); // lookup table contains tanh(x), 0 <= x <= 5
+  return  (float)sign * (float)lookupTable(shaper_tbl, ((float)x * (float)SHAPER_LOOKUP_COEF)); // lookup table contains tanh(x), 0 <= x <= 5
 }
 
 inline void tend_to(float &x, const float &target, float rate) {

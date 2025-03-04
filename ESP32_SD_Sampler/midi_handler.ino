@@ -2,30 +2,54 @@
 #include "midi_config.h"
 
 inline void MidiInit() {
-  #ifdef MIDI_VIA_SERIAL 
   
-    Serial.begin( 115200, SERIAL_8N1 ); // midi port
-    MIDI.setHandleNoteOn(handleNoteOn);
-    MIDI.setHandleNoteOff(handleNoteOff);
-    MIDI.setHandleControlChange(handleCC);
-    MIDI.setHandlePitchBend(handlePitchBend);
-    MIDI.setHandleProgramChange(handleProgramChange);
-    MIDI.begin(RECEIVE_MIDI_CHAN);
-
-
+#ifdef MIDI_VIA_SERIAL 
+  #ifdef BOARD_HAS_UART_CHIP
+    MIDI_PORT.begin( 115200, SERIAL_8N1 ); // midi port
   #endif
-  #ifdef MIDI_VIA_SERIAL2
-    pinMode( MIDIRX_PIN , INPUT_PULLDOWN);
-    pinMode( MIDITX_PIN , OUTPUT);
-    Serial2.begin( 31250, SERIAL_8N1, MIDIRX_PIN, MIDITX_PIN ); // midi port
-    MIDI2.setHandleNoteOn(handleNoteOn);
-    MIDI2.setHandleNoteOff(handleNoteOff);
-    MIDI2.setHandleControlChange(handleCC);
-    MIDI2.setHandlePitchBend(handlePitchBend);
-    MIDI2.setHandleProgramChange(handleProgramChange);
-    MIDI2.begin(RECEIVE_MIDI_CHAN);
-  #endif
+  MIDI.setHandleNoteOn(handleNoteOn);
+  MIDI.setHandleNoteOff(handleNoteOff);
+  MIDI.setHandleControlChange(handleCC);
+  MIDI.setHandlePitchBend(handlePitchBend);
+  MIDI.setHandleProgramChange(handleProgramChange);
+  MIDI.begin(RECEIVE_MIDI_CHAN);
+#endif
 
+#ifdef MIDI_VIA_SERIAL2
+  pinMode( MIDIRX_PIN , INPUT_PULLDOWN);
+  pinMode( MIDITX_PIN , OUTPUT);
+  Serial2.begin( 31250, SERIAL_8N1, MIDIRX_PIN, MIDITX_PIN ); // midi port
+  MIDI2.setHandleNoteOn(handleNoteOn);
+  MIDI2.setHandleNoteOff(handleNoteOff);
+  MIDI2.setHandleControlChange(handleCC);
+  MIDI2.setHandlePitchBend(handlePitchBend);
+  MIDI2.setHandleProgramChange(handleProgramChange);
+  MIDI2.begin(RECEIVE_MIDI_CHAN);
+#endif
+
+#ifdef MIDI_USB_DEVICE
+    // /* Change USB Device Descriptor Parameter
+    USB.VID(0x1209);
+    USB.PID(0x1304);
+    USB.productName("ESP32S3 SD sampler");
+    USB.manufacturerName("copych");
+    //USB.serialNumber("0000");
+    //USB.firmwareVersion(0x0000);
+    USB.usbVersion(0x0200);
+    USB.usbClass(TUSB_CLASS_AUDIO);
+    USB.usbSubClass(0x00);
+    USB.usbProtocol(0x00);
+    USB.usbAttributes(0x80);
+   // */ 
+    
+    MIDI_usbDev.setHandleNoteOn(handleNoteOn);
+    MIDI_usbDev.setHandleNoteOff(handleNoteOff);
+    MIDI_usbDev.setHandleControlChange(handleCC);
+    MIDI_usbDev.setHandlePitchBend(handlePitchBend);
+    MIDI_usbDev.setHandleProgramChange(handleProgramChange);
+    MIDI_usbDev.begin(RECEIVE_MIDI_CHAN);
+    DEBUG("USB device started");
+#endif
 }
 
 inline float midiToExpTime(uint8_t midiCC) { // converts 0-127 range to 0.0 - 1e30 exponential range with slow start and ~infinite growth at 127 (1=0.0002s, 64=2s, 92=10s, 126=80s)
@@ -151,4 +175,19 @@ void handleProgramChange(uint8_t inChannel, uint8_t number) {
 
 inline void handlePitchBend(uint8_t inChannel, int number) {
   Sampler.setPitch(number); 
+}
+
+inline void c_major() {
+  
+  #ifdef C_MAJOR_ON_START
+
+  delay(10);
+  Sampler.noteOn(60,100);
+  Sampler.noteOn(64,100);
+  Sampler.noteOn(67,100);
+  delay(1000);
+  Sampler.noteOff(60, Adsr::END_REGULAR);
+  Sampler.noteOff(64, Adsr::END_REGULAR);
+  Sampler.noteOff(67, Adsr::END_REGULAR);
+  #endif
 }
