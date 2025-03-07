@@ -74,7 +74,7 @@
   #define SDMMC_CMD 11  // LOLIN PCB hardlink
   #define SDMMC_CLK 12  // PCB hardlink
   #define SDMMC_D0  13  // PCB hardlink
-  #define SDMMC_D1  38   // my choice //was 8 before
+  #define SDMMC_D1  18   // my choice // was 8 before
   #define SDMMC_D2  10  // my choice
   #define SDMMC_D3  46  // PCB hardlink
 
